@@ -67,9 +67,9 @@ for t in triangles:
     pt3 = (t[4],t[5])
 
     # show the triangles on the image
-    # cv2.line(img, pt1, pt2, (255,0,0), 1)
-    # cv2.line(img, pt2, pt3, (255,0,0), 1)
-    # cv2.line(img, pt3, pt1, (255,0,0), 1)
+    cv2.line(img, pt1, pt2, (255,0,0), 1)
+    cv2.line(img, pt2, pt3, (255,0,0), 1)
+    cv2.line(img, pt3, pt1, (255,0,0), 1)
 
     # use coordinates to find index of the landmark points: where uses the value to find the index of the point in the array
     # the condition returns an array with the indexes of the points that satisfy the condition -> which point it might be
@@ -85,9 +85,9 @@ for t in triangles:
         triangles_indexes.append(triangle)
     
 # show progress
-# cv2.namedWindow("Image", cv2.WINDOW_KEEPRATIO)
-# cv2.imshow("Image", img)
-# cv2.waitKey(0)
+cv2.namedWindow("Image", cv2.WINDOW_KEEPRATIO)
+cv2.imshow("Image", img)
+cv2.waitKey(0)
 
 # for the next steps we need the frame from the webcam
 webcam = cv2.VideoCapture(0)
@@ -107,70 +107,73 @@ while(True):
             x = landmarks.part(p).x
             y = landmarks.part(p).y
             landmark_points_frame.append((x,y))
+    #landmark_points_frame = np.array(landmark_points_frame,np.int32)
 
 # 6) APPLY TRIANGLES TO THE CURRENT FRAME
     # use triangles from the reference image and apply them to the current frame
     for indexes in triangles_indexes:
         # # SHOW TRIANGLES IN THE CURRENT FRAME
-        # pt1 = landmark_points_frame[indexes[0]]
-        # pt2 = landmark_points_frame[indexes[1]]
-        # pt3 = landmark_points_frame[indexes[2]]
-        # # show the triangles on the frame
-        # cv2.line(frame, pt1, pt2, (255,0,0), 1)
-        # cv2.line(frame, pt2, pt3, (255,0,0), 1)
-        # cv2.line(frame, pt3, pt1, (255,0,0), 1)
-       
-        # triangle in the reference image
-        # get vertexes
-        pt1_ref = landmark_points_ref[indexes[0]]
-        pt2_ref = landmark_points_ref[indexes[1]]
-        pt3_ref = landmark_points_ref[indexes[2]]
-        # create an array with the triangle vertexes from the reference image
-        triangle_ref = np.array([pt1_ref,pt2_ref,pt3_ref], np.int32)
-        # get the bounding rectangle of the triangle
-        rect_ref = cv2.boundingRect(triangle_ref)
-        # get its coordinates
-        (x_ref,y_ref,w_ref,h_ref) = rect_ref
-        # crop triangle image
-        cropped_triangle_ref = img[y_ref: y_ref + h_ref, x_ref: x_ref + w_ref]
-        cropped_ref_mask = np.zeros((h_ref, w_ref), np.uint8)
-        points_ref = np.array([[pt1_ref[0] - x_ref, pt1_ref[1] - y_ref],
-                                [pt2_ref[0] - x_ref, pt2_ref[1] - y_ref],
-                                [pt3_ref[0] - x_ref, pt3_ref[1] - y_ref]], np.int32)
-        cropped_ref = cv2.bitwise_and(cropped_triangle_ref, cropped_triangle_ref, mask=cropped_ref_mask)
+        if (len(landmark_points_frame) != 0):
+            # pt1 = landmark_points_frame[indexes[0]]
+            # pt2 = landmark_points_frame[indexes[1]]
+            # pt3 = landmark_points_frame[indexes[2]]
 
+            # # # show the triangles on the frame
+            # cv2.line(frame, pt1, pt2, (255,0,0), 1)
+            # cv2.line(frame, pt2, pt3, (255,0,0), 1)
+            # cv2.line(frame, pt3, pt1, (255,0,0), 1)
         
-        # triangle in the current frame
-        # get vertexes
-        pt1_frame = landmark_points_frame[indexes[0]]
-        pt2_frame = landmark_points_frame[indexes[1]]
-        pt3_frame = landmark_points_frame[indexes[2]]
-        # create an array with the triangle vertexes from the current frame
-        triangle_frame = np.array([pt1_frame,pt2_frame,pt3_frame], np.int32)
-        # get the bounding rectangle of the triangle
-        rect_frame = cv2.boundingRect(triangle_frame)
-        # get its coordinates
-        (x_frame,y_frame,w_frame,h_frame) = rect_frame
-        # crop triangle image
-        cropped_triangle_frame = frame[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
-        cropped_frame_mask = np.zeros((h_frame, w_frame), np.uint8)
-        points_frame = np.array([[pt1_frame[0] - x_frame, pt1_frame[1] - y_frame],
-                                [pt2_frame[0] - x_frame, pt2_frame[1] - y_frame],
-                                [pt3_frame[0] - x_frame, pt3_frame[1] - y_frame]], np.int32)
-        cropped_frame = cv2.bitwise_and(cropped_triangle_frame, cropped_triangle_frame, mask=cropped_frame_mask)
-        
-        # warp triangle from the reference image to the current frame
-        points_src = np.float32(points_ref)
-        points_dst = np.float32(points_frame)
-        M = cv2.getAffineTransform(points_src, points_dst)
-        warped_triangle = cv2.warpAffine(cropped_ref, M, (w_frame, h_frame), flags=cv2.INTER_NEAREST)
+            #triangle in the reference image
+            #get vertexes
+            pt1_ref = landmark_points_ref[indexes[0]]
+            pt2_ref = landmark_points_ref[indexes[1]]
+            pt3_ref = landmark_points_ref[indexes[2]]
+            # create an array with the triangle vertexes from the reference image
+            triangle_ref = np.array([pt1_ref,pt2_ref,pt3_ref], np.int32)
+            # get the bounding rectangle of the triangle
+            rect_ref = cv2.boundingRect(triangle_ref)
+            # get its coordinates
+            (x_ref,y_ref,w_ref,h_ref) = rect_ref
+            # crop triangle image
+            cropped_triangle_ref = img[y_ref: y_ref + h_ref, x_ref: x_ref + w_ref]
+            cropped_ref_mask = np.zeros((h_ref, w_ref), np.uint8)
+            points_ref = np.array([[pt1_ref[0] - x_ref, pt1_ref[1] - y_ref],
+                                    [pt2_ref[0] - x_ref, pt2_ref[1] - y_ref],
+                                    [pt3_ref[0] - x_ref, pt3_ref[1] - y_ref]], np.int32)
+            cropped_ref = cv2.bitwise_and(cropped_triangle_ref, cropped_triangle_ref, mask=cropped_ref_mask)
 
-        # apply the transformation to the frame
-        # area = result[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
-        # make sure the triangle is not black
-        # triangle_area = cv2.add(area, warped_triangle)
-        result[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame] = warped_triangle
-        
+            
+            # triangle in the current frame
+            # get vertexes
+            pt1_frame = landmark_points_frame[indexes[0]]
+            pt2_frame = landmark_points_frame[indexes[1]]
+            pt3_frame = landmark_points_frame[indexes[2]]
+            #create an array with the triangle vertexes from the current frame
+            triangle_frame = np.array([pt1_frame,pt2_frame,pt3_frame], np.int32)
+            # get the bounding rectangle of the triangle
+            rect_frame = cv2.boundingRect(triangle_frame)
+            # get its coordinates
+            (x_frame,y_frame,w_frame,h_frame) = rect_frame
+            # crop triangle image
+            cropped_triangle_frame = frame[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
+            cropped_frame_mask = np.zeros((h_frame, w_frame), np.uint8)
+            points_frame = np.array([[pt1_frame[0] - x_frame, pt1_frame[1] - y_frame],
+                                    [pt2_frame[0] - x_frame, pt2_frame[1] - y_frame],
+                                    [pt3_frame[0] - x_frame, pt3_frame[1] - y_frame]], np.int32)
+            cropped_frame = cv2.bitwise_and(cropped_triangle_frame, cropped_triangle_frame, mask=cropped_frame_mask)
+            
+            # warp triangle from the reference image to the current frame
+            points_src = np.float32(points_ref)
+            points_dst = np.float32(points_frame)
+            M = cv2.getAffineTransform(points_src, points_dst)
+            warped_triangle = cv2.warpAffine(cropped_ref, M, (w_frame, h_frame), flags=cv2.INTER_NEAREST)
+
+            # apply the transformation to the frame
+            # area = result[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
+            # make sure the triangle is not black
+            # triangle_area = cv2.add(area, warped_triangle)
+            result[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame] = warped_triangle
+            
     # swap faces
     # result_gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
     # _, background = cv2.threshold(result_gray, 1, 255, cv2.THRESH_BINARY_INV)
