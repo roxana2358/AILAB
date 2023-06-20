@@ -310,40 +310,39 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
 # ---------- MAIN ------------ #
 
 # CREATE THE CAMERA
-cam = Camera()                                              # create a camera object
-capture = cam.record()                                      # record video from the camera
+cam = Camera()                                                      # create a camera object
+capture = cam.record()                                              # record video from the camera
 
 # DRAW THE GUI
-app = ttk.Window(themename="darkly", size=(800,800))                                            # create the GUI
-app.title("Face Swapper - Camera")                          # set the title 
-app.bind('<Escape>', lambda e: app.quit())                  # press ESC to close the app
+app = ttk.Window(themename="darkly", size=(800,800))                # create the GUI
+app.title("Face Swapper - Camera")                                  # set the title 
+app.bind('<Escape>', lambda e: app.quit())                          # press ESC to close the app
 app.wm_iconphoto(True, ImageTk.PhotoImage(file="imgs/persona_speciale.png")) # set the icon (da cambiare o togliere dato che è meme)
 
-
-camera_frame = ttk.Frame(app)                                      # create a frame
-camera_frame.pack(pady=40)                                         # show the frame
+camera_frame = ttk.Frame(app)                                       # create a frame
+camera_frame.pack(pady=40)                                          # show the frame
 
 label_camera_frame = ttk.LabelFrame(camera_frame, text="Camera")    # create a label frame
-label_camera_frame.pack(pady=20, padx=20)                    # show the label frame
+label_camera_frame.pack(pady=20, padx=20)                           # show the label frame
 
-camera_widget = ttk.Label(label_camera_frame)                               # create a label to show the camera
-camera_widget.pack(pady=10, padx=10)                                 # show the label    
+camera_widget = ttk.Label(label_camera_frame)                       # create a label to show the camera
+camera_widget.pack(pady=10, padx=10)                                # show the label    
 
-buttons_frame = ttk.Frame(app)
-buttons_frame.pack()
+buttons_frame = ttk.Frame(app)                                      # create a frame
+buttons_frame.pack()                                                # show the frame
 
 upload_button = ttk.Button(buttons_frame, text="Upload image", width=20, command=upload_image, style="default") # create a button to upload an image
-upload_button.pack()                                                                                            # show the button
+upload_button.pack()                                                # show the button
 
-text_widget = ttk.Label(buttons_frame, text="")                                              # create a label to show the text
-text_widget.pack()                                                                           # show the label
+text_widget = ttk.Label(buttons_frame, text="")                     # create a label to show the text
+text_widget.pack()                                                  # show the label
 
-default_button = ttk.Button(buttons_frame, text="Default camera", width=20, command=default_camera, style="warning")    # create a button to use the default camera
-default_button.pack()                                                                                                   # show the button
+default_button = ttk.Button(buttons_frame, text="Default camera", width=20, command=default_camera, style="warning") # create a button to use the default camera
+default_button.pack()                                               # show the button
 
 # RUN THE APP
-default_camera()                                            # start the app with the default camera
-app.mainloop()                                              # run the app
+default_camera()                                                    # start the app with the default camera
+app.mainloop()                                                      # run the app
 
 '''
 ⢀⡴⠑⡄⠀⠀⠀⠀⠀⠀⠀⣀⣀⣤⣤⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
