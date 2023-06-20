@@ -8,13 +8,13 @@ from PIL import Image, ImageTk
 
 # ---------- GLOBAL VARIABLES ---------- #
 global capture              # video capture
-global after_id
+global after_id             # id of the after function
 
 # ---------- CUSTOM CLASSES ---------- #
 class Camera():
     def __init__(self, width=640, height=480):
-        """Creates a camera with the specified width and height
-
+        """
+        Creates a camera with the specified width and height
         Args:
             width (int, optional): width of the camera. Defaults to 640.
             height (int, optional): height of the camera. Defaults to 480.
@@ -25,7 +25,6 @@ class Camera():
     def record(self) -> any:
         """
         Records the video from the camera
-
         Returns:
             any: the recorded video
         """
@@ -37,15 +36,10 @@ class Camera():
     def size(self) -> tuple:
         """
         Returns the size of the camera
-
         Returns:
             tuple: (width, height)
         """
         return self.width, self.height
-
-
-
-
 
 # ---------- CUSTOM FUNCTIONS ---------- #
 def extract_index_nparray(nparray):
@@ -68,9 +62,9 @@ def open_camera():
         img = cv2.flip(img,1)                                   # flip the frame horizontally
         captured_img = Image.fromarray(img)                     # convert the frame to PIL format
         photo_image = ImageTk.PhotoImage(image=captured_img)    # convert the frame to Tkinter format
-        camera_widget.photo_image = photo_image                 # keep a reference to the image to avoid garbage collection (<- Grazie copilot perché non sapevo cosa facesse)
+        camera_widget.photo_image = photo_image                 # keep a reference to the image to avoid garbage collection
         camera_widget.configure(image=photo_image)              # show the image on the label
-        after_id = camera_widget.after(20, open_camera)                    # call the function again after 20ms
+        after_id = camera_widget.after(20, open_camera)         # call the function again after 20ms
 
 def upload_image():
     """
@@ -83,36 +77,40 @@ def upload_image():
     ])
     if img_path != "":
         img = cv2.imread(img_path)
-        text = "added " + img_path
+        text = img_path + "used as reference"
         text_widget.configure(text=text)
         change_camera(img)
 
 def change_camera(img: any):
     """
     Changes the camera to the swapped one with the selected image
-
     Args:
         img (_type_): image to swap the face with
     """
     global capture
     global after_id
-    app.after_cancel(after_id)  # stop the camera
-    realtime_face_swap(img)
+    app.after_cancel(after_id)                          # stop the camera
+    realtime_face_swap(img)                             # apply the face swap
     
 def realtime_face_swap(img):
+    """
+    Prepares the image to be swapped with the camera
+    Args:
+        img (_type_): image to swap the face with
+    """
     global capture
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)    # the grayscale image has only one channel in 
                                                         # comparison with the color format so it's easier 
                                                         # to process for the CPU
 
-    # 2) CREATE DETECTOR AND PREDICTOR
+    # 1) CREATE DETECTOR AND PREDICTOR
     # import detector to detect faces in the image (HOG-based)
     face_detector = dlib.get_frontal_face_detector()
     # import shape predictor to predict the location of 68 landmarks (points) on the face
     shape_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 
-    # 3) FIND LANDMARKS IN THE REFERENCE IMAGE AND CREATE A CONVEX HULL
+    # 2) FIND LANDMARKS IN THE REFERENCE IMAGE AND CREATE A CONVEX HULL
     # face_detector returns a list of rectangles (with top-left and right-bottom corners) that contain the bounding boxes of the faces in the image
     faces = face_detector(img_gray)
     # predict landmarks of the face using the shape predictor on the grayscale image
@@ -133,7 +131,7 @@ def realtime_face_swap(img):
     # cv2.polylines(img, [convexhull], True, (255,0,0), 3)                # show the convex hull on the image
 
 
-    # 4) FACE SEGMENTATION INTO TRIANGLES USING DELAUNAY TRIANGULATION
+    # 3) FACE SEGMENTATION INTO TRIANGLES USING DELAUNAY TRIANGULATION
     rect = cv2.boundingRect(convexhull_ref)                             # get the bounding rectangle of the convex hull
     # (x,y,w,h) = rect                                                    # get the coordinates of the rectangle and draw it on the image
     # cv2.rectangle(img, (x,y), (x+w,y+h), (255,0,0), 2)
@@ -166,17 +164,28 @@ def realtime_face_swap(img):
         if index_pt1 is not None and index_pt2 is not None and index_pt3 is not None:
             triangle = [index_pt1,index_pt2,index_pt3]
             triangles_indexes.append(triangle)
+
+    # 4) SWAPPING LOOP        
     swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes)
 
 def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes):
+    """
+    Swaps the face in real time
+    Args:
+        img (_type_): image to swap the face with
+        face_detector (_type_): face detector
+        shape_predictor (_type_): shape predictor
+        landmark_points_ref (_type_): landmark points of the reference image
+        triangles_indexes (_type_): list of triangles with vertices indexes
+    """
     global capture
     global after_id
-    _, frame = capture.read()                            # read the current frame
-    frame = cv2.flip(frame,1)                           # flip the frame horizontally
-    gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY) # convert the frame to grayscale
-    new_face = np.zeros_like(frame)     # create a new image with the same size as the frame
+    _, frame = capture.read()                               # read the current frame
+    frame = cv2.flip(frame,1)                               # flip the frame horizontally
+    gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
+    new_face = np.zeros_like(frame)                         # create a new image with the same size as the frame
 
-# 5) GET LANDMARKS FROM THE CURRENT FRAME
+    # 5) GET LANDMARKS FROM THE CURRENT FRAME
     # process the frame to get the landmarks and convex hull
     faces = face_detector(gray_frame)
     landmark_points_frame = []
@@ -187,7 +196,7 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
             y = landmarks.part(p).y
             landmark_points_frame.append((x,y))
 
-# 6) APPLY TRIANGLES TO THE CURRENT FRAME IF THERE ARE LANDMARKS
+    # 6) APPLY TRIANGLES TO THE CURRENT FRAME IF THERE ARE LANDMARKS
     try:
         if (len(landmark_points_frame) != 0):
             np_points_frame = np.array(landmark_points_frame,np.int32)
@@ -236,7 +245,7 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
                 # get its coordinates
                 (x_frame,y_frame,w_frame,h_frame) = rect_frame
                 # crop triangle image
-                cropped_triangle_frame = frame[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
+                # cropped_triangle_frame = frame[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
                 cropped_frame_mask = np.zeros((h_frame, w_frame), np.uint8)
                 points_frame = np.array([[pt1_frame[0] - x_frame, pt1_frame[1] - y_frame],
                                         [pt2_frame[0] - x_frame, pt2_frame[1] - y_frame],
@@ -259,7 +268,6 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
                 triangle_area = cv2.add(area, warped_triangle)                                      # add the warped triangle to the area
                 new_face[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame] = triangle_area    # apply the area to the new face
       
-            # swap faces
             # make a mask of the face
             face_mask = np.zeros_like(gray_frame)                               # create a black image the same size of the frame
             head_mask = cv2.fillConvexPoly(face_mask, convexhull_frame, 255)    # fill the face with white
@@ -279,39 +287,38 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
     except:
         pass
         
-    show_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)           # convert the frame to RGBA
-    captured_img = Image.fromarray(show_img)                     # convert the frame to PIL format
-    photo_image = ImageTk.PhotoImage(image=captured_img)    # convert the frame to Tkinter format
-    camera_widget.photo_image = photo_image                 # keep a reference to the image to avoid garbage collection (<- Grazie copilot perché non sapevo cosa facesse)
-    camera_widget.configure(image=photo_image)              # show the image on the label
-    after_id = camera_widget.after(20, lambda: swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes))
+    show_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
+    captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
+    photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
+    camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
+    camera_widget.configure(image=photo_image)                  # show the image on the label
+    after_id = camera_widget.after(20, lambda: swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes))  # call this function again in 20 milliseconds
 
         
 # ---------- MAIN ------------ #
 
 # 1) CREATE THE CAMERA AND GET THE RECORD FROM IT
-cam = Camera()
-capture = cam.record()
-base_opened = True # The base camera is opened
+cam = Camera()                                              # create the camera
+capture = cam.record()                                      # get the record from the camera
+base_opened = True                                          # flag to check if the camera is opened
 
 # 2) DRAW THE GUI
-app = tk.Tk()
-app.title("Face Swapper - Camera")
-app.bind('<Escape>', lambda e: app.quit()) # press ESC to close the app
+app = tk.Tk()                                               # create the GUI
+app.title("Face Swapper - Camera")                          # set the title 
+app.bind('<Escape>', lambda e: app.quit())                  # press ESC to close the app
 
-camera_widget = tk.Label(app)
-camera_widget.pack()
+camera_widget = tk.Label(app)                               # create a label to show the camera
+camera_widget.pack()                                        # show the label    
 
-upload_button = tk.Button(app, text="Upload image", width=50, command=upload_image)
-upload_button.pack()
+upload_button = tk.Button(app, text="Upload image", width=50, command=upload_image) # create a button to upload an image
+upload_button.pack()                                        # show the button
 
-text_widget = tk.Label(app, text="")
-text_widget.pack()
+text_widget = tk.Label(app, text="")                        # create a label to show the text
+text_widget.pack()                                          # show the label
 
 # 3) RUN THE APP
-open_camera()
-app.mainloop()
-
+open_camera()                                               # open the camera
+app.mainloop()                                              # run the app
 
 '''
 ⢀⡴⠑⡄⠀⠀⠀⠀⠀⠀⠀⣀⣀⣤⣤⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
