@@ -66,6 +66,20 @@ def open_camera():
         camera_widget.configure(image=photo_image)              # show the image on the label
         after_id = camera_widget.after(20, open_camera)         # call the function again after 20ms
 
+def default_camera(text=""):
+    global capture
+    global after_id
+    try:  
+        app.after_cancel(after_id)
+    except:
+        pass
+    cam = Camera() 
+    capture = cam.record()
+    text_widget.configure(text=text)
+    open_camera()
+    
+
+
 def upload_image():
     """
     Upload an image from the file system to apply the face swap
@@ -158,7 +172,7 @@ def realtime_face_swap(img):
         app.after_cancel(after_id)                          # stop the camera
         swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes)
     except:
-        text_widget.configure(text="No face detected in the selected image")
+        default_camera("No face detected in the selected image")
 
 
 def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes):
@@ -292,9 +306,7 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
 # ---------- MAIN ------------ #
 
 # 1) CREATE THE CAMERA AND GET THE RECORD FROM IT
-cam = Camera()                                              # create the camera
-capture = cam.record()                                      # get the record from the camera
-base_opened = True                                          # flag to check if the camera is opened
+
 
 # 2) DRAW THE GUI
 app = tk.Tk()                                               # create the GUI
@@ -310,8 +322,11 @@ upload_button.pack()                                        # show the button
 text_widget = tk.Label(app, text="")                        # create a label to show the text
 text_widget.pack()                                          # show the label
 
+default_button = tk.Button(app, text="Default camera", width=50, command=default_camera) # create a button to use the default camera
+default_button.pack()
+
 # 3) RUN THE APP
-open_camera()                                               # open the camera
+default_camera()                                         # open the camera
 app.mainloop()                                              # run the app
 
 '''
