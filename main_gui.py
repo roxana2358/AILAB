@@ -43,13 +43,33 @@ class Camera():
 
 # ---------- CUSTOM FUNCTIONS ---------- #
 def extract_index_nparray(nparray):
+    """
+    Extracts the index from a numpy array
+    Args:
+        nparray (numpy array): numpy array to extract the index from
+    Returns:
+        int: index of the numpy array
+    """
     index = None
-    # return the first element of the array
     for num in nparray[0]:
         index = num
         break
     return index
 
+def default_camera(text=""):
+    """
+    Shows the default camera on the label
+    Args:
+        text (str, optional): text to show on the label. Defaults to "".
+    """
+    global after_id
+    try:  
+        app.after_cancel(after_id)                              # stop calling the function             
+    except:
+        pass
+    text_widget.configure(text=text)                            # change the text of the label
+    open_camera()                                               # show the camera on the label
+    
 def open_camera():
     """
     Shows the camera on the label
@@ -65,20 +85,6 @@ def open_camera():
         camera_widget.photo_image = photo_image                 # keep a reference to the image to avoid garbage collection
         camera_widget.configure(image=photo_image)              # show the image on the label
         after_id = camera_widget.after(20, open_camera)         # call the function again after 20ms
-
-def default_camera(text=""):
-    global capture
-    global after_id
-    try:  
-        app.after_cancel(after_id)
-    except:
-        pass
-    cam = Camera() 
-    capture = cam.record()
-    text_widget.configure(text=text)
-    open_camera()
-    
-
 
 def upload_image():
     """
@@ -169,7 +175,7 @@ def realtime_face_swap(img):
                 triangle = [index_pt1,index_pt2,index_pt3]
                 triangles_indexes.append(triangle)
         # 4) SWAPPING LOOP 
-        app.after_cancel(after_id)                          # stop the camera
+        app.after_cancel(after_id)                                  # stop calling the function
         swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes)
     except:
         default_camera("No face detected in the selected image")
@@ -187,7 +193,6 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
     """
     global capture
     global after_id
-    
     _, frame = capture.read()                               # read the current frame
     frame = cv2.flip(frame,1)                               # flip the frame horizontally
     gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
@@ -305,10 +310,11 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
         
 # ---------- MAIN ------------ #
 
-# 1) CREATE THE CAMERA AND GET THE RECORD FROM IT
+# CREATE THE CAMERA
+cam = Camera()                                              # create a camera object
+capture = cam.record()                                      # record video from the camera
 
-
-# 2) DRAW THE GUI
+# DRAW THE GUI
 app = tk.Tk()                                               # create the GUI
 app.title("Face Swapper - Camera")                          # set the title 
 app.bind('<Escape>', lambda e: app.quit())                  # press ESC to close the app
@@ -325,8 +331,8 @@ text_widget.pack()                                          # show the label
 default_button = tk.Button(app, text="Default camera", width=50, command=default_camera) # create a button to use the default camera
 default_button.pack()
 
-# 3) RUN THE APP
-default_camera()                                         # open the camera
+# RUN THE APP
+default_camera()                                            # start the app with the default camera
 app.mainloop()                                              # run the app
 
 '''
