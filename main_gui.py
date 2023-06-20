@@ -8,7 +8,6 @@ from PIL import Image, ImageTk
 
 # ---------- GLOBAL VARIABLES ---------- #
 global capture              # video capture
-global base_camera_opened   # boolean to check if the base camera is opened
 global after_id
 
 # ---------- CUSTOM CLASSES ---------- #
@@ -189,99 +188,103 @@ def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, tria
             landmark_points_frame.append((x,y))
 
 # 6) APPLY TRIANGLES TO THE CURRENT FRAME IF THERE ARE LANDMARKS
-    if (len(landmark_points_frame) != 0):
-        np_points_frame = np.array(landmark_points_frame,np.int32)
-        convexhull_frame = cv2.convexHull(np_points_frame) 
-        # use triangles from the reference image and apply them to the current frame
-        for indexes in triangles_indexes:
-            # # SHOW TRIANGLES IN THE CURRENT FRAME
-            # pt1 = landmark_points_frame[indexes[0]]
-            # pt2 = landmark_points_frame[indexes[1]]
-            # pt3 = landmark_points_frame[indexes[2]]
+    try:
+        if (len(landmark_points_frame) != 0):
+            np_points_frame = np.array(landmark_points_frame,np.int32)
+            convexhull_frame = cv2.convexHull(np_points_frame) 
+            # use triangles from the reference image and apply them to the current frame
+            for indexes in triangles_indexes:
+                # # SHOW TRIANGLES IN THE CURRENT FRAME
+                # pt1 = landmark_points_frame[indexes[0]]
+                # pt2 = landmark_points_frame[indexes[1]]
+                # pt3 = landmark_points_frame[indexes[2]]
 
-            # # # show the triangles on the frame
-            # cv2.line(frame, pt1, pt2, (255,0,0), 1)
-            # cv2.line(frame, pt2, pt3, (255,0,0), 1)
-            # cv2.line(frame, pt3, pt1, (255,0,0), 1)
-        
-            #triangle in the reference image
-            #get vertexes
-            pt1_ref = landmark_points_ref[indexes[0]]
-            pt2_ref = landmark_points_ref[indexes[1]]
-            pt3_ref = landmark_points_ref[indexes[2]]
-            # create an array with the triangle vertexes from the reference image
-            triangle_ref = np.array([pt1_ref,pt2_ref,pt3_ref], np.int32)
-            # get the bounding rectangle of the triangle
-            rect_ref = cv2.boundingRect(triangle_ref)
-            # get its coordinates
-            (x_ref,y_ref,w_ref,h_ref) = rect_ref
-            # crop triangle image
-            cropped_triangle_ref = img[y_ref: y_ref + h_ref, x_ref: x_ref + w_ref]
-            cropped_ref_mask = np.zeros((h_ref, w_ref), np.uint8)
-            points_ref = np.array([[pt1_ref[0] - x_ref, pt1_ref[1] - y_ref],
-                                    [pt2_ref[0] - x_ref, pt2_ref[1] - y_ref],
-                                    [pt3_ref[0] - x_ref, pt3_ref[1] - y_ref]], np.int32)
-            cv2.fillConvexPoly(cropped_ref_mask, points_ref, 255)
-            cropped_ref = cv2.bitwise_and(cropped_triangle_ref, cropped_triangle_ref, mask=cropped_ref_mask)
-
-            # triangle in the current frame
-            # get vertexes
-            pt1_frame = landmark_points_frame[indexes[0]]
-            pt2_frame = landmark_points_frame[indexes[1]]
-            pt3_frame = landmark_points_frame[indexes[2]]
-            #create an array with the triangle vertexes from the current frame
-            triangle_frame = np.array([pt1_frame,pt2_frame,pt3_frame], np.int32)
-            # get the bounding rectangle of the triangle
-            rect_frame = cv2.boundingRect(triangle_frame)
-            # get its coordinates
-            (x_frame,y_frame,w_frame,h_frame) = rect_frame
-            # crop triangle image
-            cropped_triangle_frame = frame[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
-            cropped_frame_mask = np.zeros((h_frame, w_frame), np.uint8)
-            points_frame = np.array([[pt1_frame[0] - x_frame, pt1_frame[1] - y_frame],
-                                    [pt2_frame[0] - x_frame, pt2_frame[1] - y_frame],
-                                    [pt3_frame[0] - x_frame, pt3_frame[1] - y_frame]], np.int32)
-            cv2.fillConvexPoly(cropped_frame_mask, points_frame, 255)
-            # cropped_frame = cv2.bitwise_and(cropped_triangle_frame, cropped_triangle_frame, mask=cropped_frame_mask)
+                # # # show the triangles on the frame
+                # cv2.line(frame, pt1, pt2, (255,0,0), 1)
+                # cv2.line(frame, pt2, pt3, (255,0,0), 1)
+                # cv2.line(frame, pt3, pt1, (255,0,0), 1)
             
-            # warp triangle from the reference image to the current frame
-            points_src = np.float32(points_ref)
-            points_dst = np.float32(points_frame)
-            M = cv2.getAffineTransform(points_src, points_dst)
-            warped_triangle = cv2.warpAffine(cropped_ref, M, (w_frame, h_frame), flags=cv2.INTER_NEAREST)
-            warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=cropped_frame_mask)
+                #triangle in the reference image
+                #get vertexes
+                pt1_ref = landmark_points_ref[indexes[0]]
+                pt2_ref = landmark_points_ref[indexes[1]]
+                pt3_ref = landmark_points_ref[indexes[2]]
+                # create an array with the triangle vertexes from the reference image
+                triangle_ref = np.array([pt1_ref,pt2_ref,pt3_ref], np.int32)
+                # get the bounding rectangle of the triangle
+                rect_ref = cv2.boundingRect(triangle_ref)
+                # get its coordinates
+                (x_ref,y_ref,w_ref,h_ref) = rect_ref
+                # crop triangle image
+                cropped_triangle_ref = img[y_ref: y_ref + h_ref, x_ref: x_ref + w_ref]
+                cropped_ref_mask = np.zeros((h_ref, w_ref), np.uint8)
+                points_ref = np.array([[pt1_ref[0] - x_ref, pt1_ref[1] - y_ref],
+                                        [pt2_ref[0] - x_ref, pt2_ref[1] - y_ref],
+                                        [pt3_ref[0] - x_ref, pt3_ref[1] - y_ref]], np.int32)
+                cv2.fillConvexPoly(cropped_ref_mask, points_ref, 255)
+                cropped_ref = cv2.bitwise_and(cropped_triangle_ref, cropped_triangle_ref, mask=cropped_ref_mask)
 
-            # apply the transformation to the frame
-            area = new_face[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]             # get the area where the triangle will be applied
-            area_gray = cv2.cvtColor(area, cv2.COLOR_BGR2GRAY)                                  # convert it to grayscale
-            _, area_mask = cv2.threshold(area_gray, 1, 255, cv2.THRESH_BINARY_INV)              # create mask
-            warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=area_mask) # apply the mask to the warped triangle
-            triangle_area = cv2.add(area, warped_triangle)                                      # add the warped triangle to the area
-            new_face[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame] = triangle_area    # apply the area to the new face
+                # triangle in the current frame
+                # get vertexes
+                pt1_frame = landmark_points_frame[indexes[0]]
+                pt2_frame = landmark_points_frame[indexes[1]]
+                pt3_frame = landmark_points_frame[indexes[2]]
+                #create an array with the triangle vertexes from the current frame
+                triangle_frame = np.array([pt1_frame,pt2_frame,pt3_frame], np.int32)
+                # get the bounding rectangle of the triangle
+                rect_frame = cv2.boundingRect(triangle_frame)
+                # get its coordinates
+                (x_frame,y_frame,w_frame,h_frame) = rect_frame
+                # crop triangle image
+                cropped_triangle_frame = frame[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
+                cropped_frame_mask = np.zeros((h_frame, w_frame), np.uint8)
+                points_frame = np.array([[pt1_frame[0] - x_frame, pt1_frame[1] - y_frame],
+                                        [pt2_frame[0] - x_frame, pt2_frame[1] - y_frame],
+                                        [pt3_frame[0] - x_frame, pt3_frame[1] - y_frame]], np.int32)
+                cv2.fillConvexPoly(cropped_frame_mask, points_frame, 255)
+                # cropped_frame = cv2.bitwise_and(cropped_triangle_frame, cropped_triangle_frame, mask=cropped_frame_mask)
                 
-        # swap faces
-        # make a mask of the face
-        face_mask = np.zeros_like(gray_frame)                               # create a black image the same size of the frame
-        head_mask = cv2.fillConvexPoly(face_mask, convexhull_frame, 255)    # fill the face with white
-        face_mask = cv2.bitwise_not(head_mask)                              # invert the mask (face black, background white)
+                # warp triangle from the reference image to the current frame
+                points_src = np.float32(points_ref)
+                points_dst = np.float32(points_frame)
+                M = cv2.getAffineTransform(points_src, points_dst)
+                warped_triangle = cv2.warpAffine(cropped_ref, M, (w_frame, h_frame), flags=cv2.INTER_NEAREST)
+                warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=cropped_frame_mask)
 
-        # remove the face from the frame
-        head_noface = cv2.bitwise_and(frame, frame, mask=face_mask)
+                # apply the transformation to the frame
+                area = new_face[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]             # get the area where the triangle will be applied
+                area_gray = cv2.cvtColor(area, cv2.COLOR_BGR2GRAY)                                  # convert it to grayscale
+                _, area_mask = cv2.threshold(area_gray, 1, 255, cv2.THRESH_BINARY_INV)              # create mask
+                warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=area_mask) # apply the mask to the warped triangle
+                triangle_area = cv2.add(area, warped_triangle)                                      # add the warped triangle to the area
+                new_face[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame] = triangle_area    # apply the area to the new face
+      
+            # swap faces
+            # make a mask of the face
+            face_mask = np.zeros_like(gray_frame)                               # create a black image the same size of the frame
+            head_mask = cv2.fillConvexPoly(face_mask, convexhull_frame, 255)    # fill the face with white
+            face_mask = cv2.bitwise_not(head_mask)                              # invert the mask (face black, background white)
 
-        # add the new face to the frame
-        result = cv2.add(head_noface, new_face)
+            # remove the face from the frame
+            head_noface = cv2.bitwise_and(frame, frame, mask=face_mask)
 
-        # get the center of the face and apply seamless cloning
-        (x, y, w, h) = cv2.boundingRect(convexhull_frame)
-        center_face = (int((x + x + w) / 2), int((y + y + h) / 2))
-        seamlessclone = cv2.seamlessClone(result, frame, head_mask, center_face, cv2.NORMAL_CLONE)
+            # add the new face to the frame
+            result = cv2.add(head_noface, new_face)
+
+            # get the center of the face and apply seamless cloning
+            (x, y, w, h) = cv2.boundingRect(convexhull_frame)
+            center_face = (int((x + x + w) / 2), int((y + y + h) / 2))
+            seamlessclone = cv2.seamlessClone(result, frame, head_mask, center_face, cv2.NORMAL_CLONE)
+            frame = seamlessclone
+    except:
+        pass
         
-        show_img = cv2.cvtColor(seamlessclone, cv2.COLOR_BGR2RGBA)           # convert the frame to RGBA
-        captured_img = Image.fromarray(show_img)                     # convert the frame to PIL format
-        photo_image = ImageTk.PhotoImage(image=captured_img)    # convert the frame to Tkinter format
-        camera_widget.photo_image = photo_image                 # keep a reference to the image to avoid garbage collection (<- Grazie copilot perché non sapevo cosa facesse)
-        camera_widget.configure(image=photo_image)              # show the image on the label
-        after_id = camera_widget.after(20, lambda: swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes))
+    show_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)           # convert the frame to RGBA
+    captured_img = Image.fromarray(show_img)                     # convert the frame to PIL format
+    photo_image = ImageTk.PhotoImage(image=captured_img)    # convert the frame to Tkinter format
+    camera_widget.photo_image = photo_image                 # keep a reference to the image to avoid garbage collection (<- Grazie copilot perché non sapevo cosa facesse)
+    camera_widget.configure(image=photo_image)              # show the image on the label
+    after_id = camera_widget.after(20, lambda: swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes))
 
         
 # ---------- MAIN ------------ #
