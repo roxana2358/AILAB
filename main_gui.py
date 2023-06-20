@@ -82,10 +82,11 @@ def upload_image():
         ("image", ".jpeg"),
         ("image", ".png")
     ])
-    img = cv2.imread(img_path)
-    text = "added " + img_path
-    text_widget.configure(text=text)
-    change_camera(img)
+    if img_path != "":
+        img = cv2.imread(img_path)
+        text = "added " + img_path
+        text_widget.configure(text=text)
+        change_camera(img)
 
 def change_camera(img: any):
     """
