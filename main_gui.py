@@ -2,9 +2,9 @@
 import dlib
 import cv2
 import numpy as np
-import tkinter as tk
 from tkinter.filedialog import askopenfilename
 from PIL import Image, ImageTk
+import ttkbootstrap as ttk
 
 # ---------- GLOBAL VARIABLES ---------- #
 global capture              # video capture
@@ -180,7 +180,6 @@ def realtime_face_swap(img):
     except:
         default_camera("No face detected in the selected image")
 
-
 def swapping_loop(img, face_detector, shape_predictor, landmark_points_ref, triangles_indexes):
     """
     Swaps the face in real time
@@ -315,21 +314,32 @@ cam = Camera()                                              # create a camera ob
 capture = cam.record()                                      # record video from the camera
 
 # DRAW THE GUI
-app = tk.Tk()                                               # create the GUI
+app = ttk.Window(themename="darkly", size=(800,800))                                            # create the GUI
 app.title("Face Swapper - Camera")                          # set the title 
 app.bind('<Escape>', lambda e: app.quit())                  # press ESC to close the app
+app.wm_iconphoto(True, ImageTk.PhotoImage(file="imgs/persona_speciale.png")) # set the icon (da cambiare o togliere dato che è meme)
 
-camera_widget = tk.Label(app)                               # create a label to show the camera
-camera_widget.pack()                                        # show the label    
 
-upload_button = tk.Button(app, text="Upload image", width=50, command=upload_image) # create a button to upload an image
-upload_button.pack()                                        # show the button
+camera_frame = ttk.Frame(app)                                      # create a frame
+camera_frame.pack(pady=40)                                         # show the frame
 
-text_widget = tk.Label(app, text="")                        # create a label to show the text
-text_widget.pack()                                          # show the label
+label_camera_frame = ttk.LabelFrame(camera_frame, text="Camera")    # create a label frame
+label_camera_frame.pack(pady=20, padx=20)                    # show the label frame
 
-default_button = tk.Button(app, text="Default camera", width=50, command=default_camera) # create a button to use the default camera
-default_button.pack()
+camera_widget = ttk.Label(label_camera_frame)                               # create a label to show the camera
+camera_widget.pack(pady=10, padx=10)                                 # show the label    
+
+buttons_frame = ttk.Frame(app)
+buttons_frame.pack()
+
+upload_button = ttk.Button(buttons_frame, text="Upload image", width=20, command=upload_image, style="default") # create a button to upload an image
+upload_button.pack()                                                                                            # show the button
+
+text_widget = ttk.Label(buttons_frame, text="")                                              # create a label to show the text
+text_widget.pack()                                                                           # show the label
+
+default_button = ttk.Button(buttons_frame, text="Default camera", width=20, command=default_camera, style="warning")    # create a button to use the default camera
+default_button.pack()                                                                                                   # show the button
 
 # RUN THE APP
 default_camera()                                            # start the app with the default camera
@@ -352,3 +362,8 @@ app.mainloop()                                              # run the app
 ⠀⠀⠀⠀⠀⠀⠀⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠻⠿⠿⠿⠿⠛⠉
 '''
+
+# TODO: - grafica - allineare il text_widget alla destra di upload_button
+# TODO: - codice - permettere di fare il face swapping tra due foto senza dover uscire dall'app (menù principale???)
+# TODO: - codice - migliorare la gestione dei punti della bocca (fede ha detto così)
+# TODO: - codice - implementare il face swapping dati due volti rilevati nella camera
