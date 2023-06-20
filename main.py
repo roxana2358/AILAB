@@ -107,11 +107,11 @@ while(True):
             x = landmarks.part(p).x
             y = landmarks.part(p).y
             landmark_points_frame.append((x,y))
-    np_points_frame = np.array(landmark_points_frame,np.int32)
-    convexhull_frame = cv2.convexHull(np_points_frame) 
 
 # 6) APPLY TRIANGLES TO THE CURRENT FRAME IF THERE ARE LANDMARKS
     if (len(landmark_points_frame) != 0):
+        np_points_frame = np.array(landmark_points_frame,np.int32)
+        convexhull_frame = cv2.convexHull(np_points_frame) 
         # use triangles from the reference image and apply them to the current frame
         for indexes in triangles_indexes:
             # # SHOW TRIANGLES IN THE CURRENT FRAME
