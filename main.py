@@ -1,7 +1,9 @@
 # ---------- IMPORT LIBRARIES ---------- #
 import dlib
 import cv2
-import numpy as np 
+import numpy as np
+import tkinter as tk
+from tkinter.filedialog import askopenfilename
 
 
 # ---------- CUSTOM FUNCTIONS ---------- #
@@ -16,7 +18,10 @@ def extract_index_nparray(nparray):
 
 # ---------- MAIN ------------ #
 # 1) READ THE REFERENCE IMAGE
-img = cv2.imread("imgs/gerry.png")
+root = tk.Tk()
+root.withdraw()                                     # keep the root window from appearing
+filename = askopenfilename()                        # get filename through a dialog box
+img = cv2.imread(filename)                          # read the selected image
 img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)    # the grayscale image has only one channel in 
                                                     # comparison with the color format so it's easier 
                                                     # to process for the CPU
