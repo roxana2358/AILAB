@@ -314,7 +314,7 @@ cam = Camera()                                                      # create a c
 capture = cam.record()                                              # record video from the camera
 
 # DRAW THE GUI
-app = ttk.Window(themename="darkly", size=(800,800))                # create the GUI
+app = ttk.Window(themename="minty", size=(800,800))                # create the GUI
 app.title("Face Swapper - Camera")                                  # set the title 
 app.bind('<Escape>', lambda e: app.quit())                          # press ESC to close the app
 app.wm_iconphoto(True, ImageTk.PhotoImage(file="imgs/persona_speciale.png")) # set the icon (da cambiare o togliere dato che è meme)
