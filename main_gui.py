@@ -292,12 +292,11 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes):
                 v1 = indexes[0]
                 v2 = indexes[1]
                 v3 = indexes[2]
-                # # SHOW TRIANGLES IN THE CURRENT FRAME
+
+                # SHOW TRIANGLES IN THE CURRENT FRAME
                 # pt1 = landmark_points_frame[v1]
                 # pt2 = landmark_points_frame[v2]
                 # pt3 = landmark_points_frame[v3]
-
-                # # show the triangles on the frame
                 # cv2.line(frame, pt1, pt2, (255,0,0), 1)
                 # cv2.line(frame, pt2, pt3, (255,0,0), 1)
                 # cv2.line(frame, pt3, pt1, (255,0,0), 1)
@@ -331,7 +330,11 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes):
             face_mask = np.zeros_like(gray_frame)                               # create a black image the same size of the frame
             head_mask = cv2.fillConvexPoly(face_mask, convexhull_frame, 255)    # fill the face with white
             convexhull_mouth = cv2.convexHull(np_points_frame[60:])             # get the convex hull of the mouth
+            convexhull_left_eye = cv2.convexHull(np_points_frame[36:42])        # get the convex hull of the left eye
+            convexhull_right_eye = cv2.convexHull(np_points_frame[42:48])       # get the convex hull of the right eye
             head_mask = cv2.fillConvexPoly(head_mask, convexhull_mouth, 0)      # fill the mouth with black
+            head_mask = cv2.fillConvexPoly(head_mask, convexhull_left_eye, 0)   # fill the left eye with black
+            head_mask = cv2.fillConvexPoly(head_mask, convexhull_right_eye, 0)  # fill the right eye with black
             face_mask = cv2.bitwise_not(head_mask)                              # invert the mask (face and mouth black, background white)
 
             # remove the face from the frame
@@ -414,6 +417,4 @@ app.mainloop()                                                      # run the ap
 '''
 
 # TODO: - grafica - allineare il text_widget alla destra di upload_button
-# TODO: - codice - permettere di fare il face swapping tra due foto senza dover uscire dall'app (menù principale???)
-# TODO: - codice - implementare il face swapping dati due volti rilevati nella camera
 # TODO: - codice+grafica - aggiungere filtri e buttons per sceglierli
