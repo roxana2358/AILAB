@@ -65,19 +65,41 @@ def detect_facial_landmarks(img_gray):
         landmark_points_ref.append((x,y))
     return landmark_points_ref
 
-def extract_index_nparray(nparray):
+def get_cropped_triangle(img, landmarks, v1, v2, v3):
     """
-    Extracts the index from a numpy array
+    Gets the cropped triangle and other info from the image
     Args:
-        nparray (numpy array): numpy array to extract the index from
+        img (_type_): image
+        landmarks (list): list of the facial landmarks
+        v1 (int): vertex 1
+        v2 (int): vertex 2
+        v3 (int): vertex 3
     Returns:
-        int: index of the numpy array
+        tuple: (points, cropped, cropped_mask, x, y, w, h)
     """
-    index = None
-    for num in nparray[0]:
-        index = num
-        break
-    return index
+    # get coordinates
+    pt1 = landmarks[v1]
+    pt2 = landmarks[v2]
+    pt3 = landmarks[v3]
+    # create an array with the triangle vertexes from the image
+    triangle = np.array([pt1,pt2,pt3], np.int32)
+    # get the bounding rectangle of the triangle
+    rect = cv2.boundingRect(triangle)
+    # get its size
+    (x,y,w,h) = rect
+    # get the part of the image with the triangle
+    cropped_triangle = img[y: y + h, x: x + w]
+    # create a mask with the triangle
+    cropped_mask = np.zeros((h, w), np.uint8)
+    # get the points of the triangle
+    points = np.array([[pt1[0] - x, pt1[1] - y],
+                        [pt2[0] - x, pt2[1] - y],
+                        [pt3[0] - x, pt3[1] - y]], np.int32)
+    # fill the triangle with white
+    cv2.fillConvexPoly(cropped_mask, points, 255)
+    # apply the mask to the triangle
+    cropped = cv2.bitwise_and(cropped_triangle, cropped_triangle, mask=cropped_mask)
+    return points, cropped, cropped_mask, x, y, w, h
 
 def default_camera(text=""):
     """
@@ -143,29 +165,6 @@ def realtime_face_swap(img):
     face_detector = dlib.get_frontal_face_detector()
     # import shape predictor to predict the location of 68 landmarks (points) on the face
     shape_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
-    # points of the mouth
-    mouth_points = [
-    # [48],  # <outer mouth>
-    # [49],
-    # [50],
-    # [51],
-    # [52],
-    # [53],
-    # [54],
-    # [55],
-    # [56],
-    # [57],
-    # [58],  # </outer mouth>
-    [59],  # <inner mouth>
-    [60],
-    [61],
-    [62],
-    [63],
-    [64],
-    [65],
-    [66],
-    [67],  # </inner mouth>
-]
 
     # 2) FIND LANDMARKS IN THE REFERENCE IMAGE AND CREATE A CONVEX HULL
     try:
@@ -204,8 +203,8 @@ def realtime_face_swap(img):
             # axis=1 returns the first element
             # the custom function returns only the value of the index
             index_pt1 = np.where((np_points_ref == pt1).all(axis=1))[0][0]
-            index_pt2 = extract_index_nparray(np.where((np_points_ref == pt2).all(axis=1)))
-            index_pt3 = extract_index_nparray(np.where((np_points_ref == pt3).all(axis=1)))
+            index_pt2 = np.where((np_points_ref == pt2).all(axis=1))[0][0]
+            index_pt3 = np.where((np_points_ref == pt3).all(axis=1))[0][0]
 
             # store the triangles in a list
             if index_pt1 is not None and index_pt2 is not None and index_pt3 is not None:
@@ -217,12 +216,12 @@ def realtime_face_swap(img):
 
     # 4) SWAPPING LOOP 
         app.after_cancel(after_id)                                  # stop calling the function
-        swapping_loop(img, landmark_points_ref, triangles_indexes, mouth_points)
+        swapping_loop(img, landmark_points_ref, triangles_indexes)
     except Exception as e:
-        print(e)
+        # print("Reference image exception: ",e)
         default_camera("No face detected in the selected image")
 
-def swapping_loop(img, landmark_points_ref, triangles_indexes, mouth_points):
+def swapping_loop(img, landmark_points_ref, triangles_indexes):
     """
     Swaps the face in real time
     Args:
@@ -236,7 +235,47 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes, mouth_points):
     frame = cv2.flip(frame,1)                               # flip the frame horizontally
     gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
     new_face = np.zeros_like(frame)                         # create a new image with the same size as the frame
+    
+    # points of the mouth
+    mouth_points = [
+    # [48],  # <outer mouth>
+    # [49],
+    # [50],
+    # [51],
+    # [52],
+    # [53],
+    # [54],
+    # [55],
+    # [56],
+    # [57],
+    # [58],  # </outer mouth>
+    [59],  # <inner mouth>
+    [60],
+    [61],
+    [62],
+    [63],
+    [64],
+    [65],
+    [66],
+    [67],  # </inner mouth>
+]
+    # points of the eyes
+    eyes_points = [
+    [36],  # <left eye>
+    [37],
+    [38],
+    [39],
+    [40],
+    [41],  # </left eye>
+    [42],  # <right eye>
+    [43],
+    [44],
+    [45],
+    [46],
+    [47],  # </right eye>
+]
     mouth_points_set = set(mp[0] for mp in mouth_points)    # convert the list of mouth points to a set
+    eyes_points_set = set(ep[0] for ep in eyes_points)      # convert the list of eyes points to a set
 
     try:
     # 5) GET LANDMARKS FROM THE CURRENT FRAME
@@ -258,53 +297,19 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes, mouth_points):
                 # pt2 = landmark_points_frame[v2]
                 # pt3 = landmark_points_frame[v3]
 
-                # # # show the triangles on the frame
+                # # show the triangles on the frame
                 # cv2.line(frame, pt1, pt2, (255,0,0), 1)
                 # cv2.line(frame, pt2, pt3, (255,0,0), 1)
                 # cv2.line(frame, pt3, pt1, (255,0,0), 1)
             
                 # triangle in the reference image
-                # get vertexes
-                pt1_ref = landmark_points_ref[v1]
-                pt2_ref = landmark_points_ref[v2]
-                pt3_ref = landmark_points_ref[v3]
-                # create an array with the triangle vertexes from the reference image
-                triangle_ref = np.array([pt1_ref,pt2_ref,pt3_ref], np.int32)
-                # get the bounding rectangle of the triangle
-                rect_ref = cv2.boundingRect(triangle_ref)
-                # get its coordinates
-                (x_ref,y_ref,w_ref,h_ref) = rect_ref
-                # crop triangle image
-                cropped_triangle_ref = img[y_ref: y_ref + h_ref, x_ref: x_ref + w_ref]
-                cropped_ref_mask = np.zeros((h_ref, w_ref), np.uint8)
-                points_ref = np.array([[pt1_ref[0] - x_ref, pt1_ref[1] - y_ref],
-                                        [pt2_ref[0] - x_ref, pt2_ref[1] - y_ref],
-                                        [pt3_ref[0] - x_ref, pt3_ref[1] - y_ref]], np.int32)
-                cv2.fillConvexPoly(cropped_ref_mask, points_ref, 255)
-                cropped_ref = cv2.bitwise_and(cropped_triangle_ref, cropped_triangle_ref, mask=cropped_ref_mask)
-
+                points_ref, cropped_ref, _, _, _, _, _ = get_cropped_triangle(img, landmark_points_ref, v1, v2, v3)
+                
                 # triangle in the current frame
-                # get vertexes
-                pt1_frame = landmark_points_frame[v1]
-                pt2_frame = landmark_points_frame[v2]
-                pt3_frame = landmark_points_frame[v3]
-                # create an array with the triangle vertexes from the current frame
-                triangle_frame = np.array([pt1_frame,pt2_frame,pt3_frame], np.int32)
-                # get the bounding rectangle of the triangle
-                rect_frame = cv2.boundingRect(triangle_frame)
-                # get its coordinates
-                (x_frame,y_frame,w_frame,h_frame) = rect_frame
-                # crop triangle image
-                cropped_triangle_frame = frame[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]
-                cropped_frame_mask = np.zeros((h_frame, w_frame), np.uint8)
-                points_frame = np.array([[pt1_frame[0] - x_frame, pt1_frame[1] - y_frame],
-                                        [pt2_frame[0] - x_frame, pt2_frame[1] - y_frame],
-                                        [pt3_frame[0] - x_frame, pt3_frame[1] - y_frame]], np.int32)
-                cv2.fillConvexPoly(cropped_frame_mask, points_frame, 255)
-                cropped_frame = cv2.bitwise_and(cropped_triangle_frame, cropped_triangle_frame, mask=cropped_frame_mask)
+                points_frame, cropped_frame, cropped_frame_mask, x_frame, y_frame, w_frame, h_frame = get_cropped_triangle(frame, landmark_points_frame, v1, v2, v3)
                 
                 # check if the triangle is in the mouth area - no need to warp it
-                if v1 in mouth_points_set and v2 in mouth_points_set and v3 in mouth_points_set:
+                if (v1 in mouth_points_set and v2 in mouth_points_set and v3 in mouth_points_set) or (v1 in eyes_points_set and v2 in eyes_points_set and v3 in eyes_points_set):
                     warped_triangle = cropped_frame
                 # else warp triangle from the reference image to the current frame
                 else:
@@ -342,7 +347,7 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes, mouth_points):
             frame = seamlessclone
 
     except Exception as e:
-        print(e)
+        # print("Frame exception: ",e)
         pass
         
     show_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
@@ -350,7 +355,7 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes, mouth_points):
     photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
     camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
     camera_widget.configure(image=photo_image)                  # show the image on the label
-    after_id = camera_widget.after(20, lambda: swapping_loop(img, landmark_points_ref, triangles_indexes, mouth_points))  # call this function again in 20 milliseconds
+    after_id = camera_widget.after(20, lambda: swapping_loop(img, landmark_points_ref, triangles_indexes))  # call this function again in 20 milliseconds
 
         
 # ---------- MAIN ------------ #
