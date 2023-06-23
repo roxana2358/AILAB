@@ -340,7 +340,7 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes, mouth_points):
             center_face = (int((x + x + w) / 2), int((y + y + h) / 2))
             seamlessclone = cv2.seamlessClone(result, frame, head_mask, center_face, cv2.NORMAL_CLONE)
             frame = seamlessclone
-            
+
     except Exception as e:
         print(e)
         pass
@@ -410,5 +410,5 @@ app.mainloop()                                                      # run the ap
 
 # TODO: - grafica - allineare il text_widget alla destra di upload_button
 # TODO: - codice - permettere di fare il face swapping tra due foto senza dover uscire dall'app (menù principale???)
-# TODO: - codice - migliorare la gestione dei punti della bocca (fede ha detto così)
 # TODO: - codice - implementare il face swapping dati due volti rilevati nella camera
+# TODO: - codice+grafica - aggiungere filtri e buttons per sceglierli
