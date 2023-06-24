@@ -388,7 +388,7 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
             stored_frame = seamlessclone
 
     except Exception as e:
-        print("Frame exception: ",e)
+        # print("Frame exception: ",e)
         pass
 
     if cartoon_active:                          # if cartoonize is active
