@@ -9,12 +9,17 @@ from ttkbootstrap import DoubleVar
  
 # ---------- GLOBAL VARIABLES ---------- #
 global capture              # video capture
+global stored_frame        # current frame to be shown on the label
 global after_id             # id of the function called after a delay
 global face_detector        # detector to detect faces in the image (HOG-based)
 global shape_predictor      # predictor to predict the location of 68 landmarks (points) on the face
 global scale_value          # value of the scale
+global swap_active          # True if the face swap is active
+global cartoon_active       # True if the cartoon filter is active
+global eye_active           # True if the eye filter is active
 global img_path             # path of the image for the face swapping
                             # global because it's needed to regenerate the face swap after changing filter
+global milsec               # milliseconds between each frame
 
 # ---------- CUSTOM CLASSES ---------- #
 class Camera():
@@ -48,6 +53,73 @@ class Camera():
         return self.width, self.height
 
 # ---------- CUSTOM FUNCTIONS ---------- #
+def default_camera(text:str="") -> None:
+    """
+    Shows the default camera on the label
+    Args:
+        text (str, optional): text to show on the label. Defaults to "".
+    """
+    global after_id
+    global swap_active
+    global cartoon_active
+    global img_path
+    
+    img_path = ""                               # reset the image path
+    swap_active = False                         # reset the face swap filter
+    if cartoon_active:                          # if the cartoon filter is active
+        scale.pack_forget()                     # hide the scale
+        scale_title.pack_forget()               # hide the scale title
+        s_value.pack_forget()                   # hide the scale value
+    remove_filters()                            # remove all the filters
+    try:  
+        app.after_cancel(after_id)              # stop calling the function             
+    except Exception as e:
+        # print("Default camera ",e)
+        pass
+    text_widget.configure(text=text)            # change the text of the label
+    open_camera()                               # show the camera on the label
+    
+def open_camera() -> None:
+    """
+    Opens the camera and shows the current frame on the label
+    """
+    global capture
+    global after_id
+    global stored_frame
+    if type(capture) == cv2.VideoCapture:
+        _, frame = capture.read()                               # read the current frame
+        img = cv2.flip(frame,1)                                 # flip the frame horizontally
+        stored_frame = img                                     # store the current frame
+        put_frame()                                             # show the frame
+        after_id = camera_widget.after(milsec, open_camera)     # call the function again
+
+def upload_image() -> None:
+    """
+    Upload an image from the file system to apply the face swap
+    """
+    global img_path
+    img_path = askopenfilename(title="Select an image", filetypes=[
+        ("image", ".jpg"),
+        ("image", ".jpeg"),
+        ("image", ".png")
+    ])
+    if img_path != "":
+        img = cv2.imread(img_path)
+        text = img_path + " used as reference"
+        text_widget.configure(text=text)
+        realtime_face_swap(img)
+
+def put_frame() -> None:
+    """
+    Puts the current frame on the label
+    """
+    global stored_frame
+    show_img = cv2.cvtColor(stored_frame, cv2.COLOR_BGR2RGBA)  # convert the frame to RGBA
+    captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
+    photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
+    camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
+    camera_widget.configure(image=photo_image)                  # show the image on the label
+    
 def detect_facial_landmarks(img_gray:np.ndarray) -> list:
     """
     Detects the facial landmarks on the image
@@ -105,66 +177,12 @@ def get_cropped_triangle(img:np.ndarray, landmarks:list, v1:int, v2:int, v3:int)
     cropped = cv2.bitwise_and(cropped_triangle, cropped_triangle, mask=cropped_mask)
     return points, cropped, cropped_mask, x, y, w, h
 
-def default_camera(text:str="") -> None:
-    """
-    Shows the default camera on the label
-    Args:
-        text (str, optional): text to show on the label. Defaults to "".
-    """
-    global after_id
-    global swap_active
-    global cartoon_active
-    global img_path
-    
-    img_path = ""
-    swap_active = False
-    cartoon_active = False
-    try:  
-        app.after_cancel(after_id)                              # stop calling the function             
-    except:
-        pass
-    text_widget.configure(text=text)                            # change the text of the label
-    open_camera()                                               # show the camera on the label
-    
-def open_camera() -> None:
-    """
-    Shows the camera on the label
-    """
-    global capture
-    global after_id
-    if type(capture) == cv2.VideoCapture:
-        _, frame = capture.read()                               # read the current frame
-        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)           # convert the frame to RGBA
-        img = cv2.flip(img,1)                                   # flip the frame horizontally
-        captured_img = Image.fromarray(img)                     # convert the frame to PIL format
-        photo_image = ImageTk.PhotoImage(image=captured_img)    # convert the frame to Tkinter format
-        camera_widget.photo_image = photo_image                 # keep a reference to the image to avoid garbage collection
-        camera_widget.configure(image=photo_image)              # show the image on the label
-        after_id = camera_widget.after(20, open_camera)         # call the function again after 20ms
-
-def upload_image() -> None:
-    """
-    Upload an image from the file system to apply the face swap
-    """
-    global img_path
-    img_path = askopenfilename(title="Select an image", filetypes=[
-        ("image", ".jpg"),
-        ("image", ".jpeg"),
-        ("image", ".png")
-    ])
-    if img_path != "":
-        img = cv2.imread(img_path)
-        text = img_path + " used as reference"
-        text_widget.configure(text=text)
-        realtime_face_swap(img)
-    
 def realtime_face_swap(img:np.ndarray) -> None:
     """
     Prepares the image to be swapped with the camera
     Args:
-        img (_type_): image to swap the face with
+        img (ndarray): image
     """
-    global capture
     global after_id
     global face_detector
     global shape_predictor
@@ -230,8 +248,8 @@ def realtime_face_swap(img:np.ndarray) -> None:
 
     # 4) SWAPPING LOOP 
         app.after_cancel(after_id)                                  # stop calling the function
-        swap_active = True                                          # set the flag to true 
-        swapping_loop(img, landmark_points_ref, triangles_indexes)
+        swap_active = True                                          # set the flag to True
+        swapping_loop(img, landmark_points_ref, triangles_indexes)  # call the swapping loop
     except Exception as e:
         # print("Reference image exception: ",e)
         default_camera("No face detected in the selected image")
@@ -246,11 +264,16 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
     """
     global capture
     global after_id
+    global stored_frame
+    global cartoon_active
+    global eye_active
+
     _, frame = capture.read()                               # read the current frame
     frame = cv2.flip(frame,1)                               # flip the frame horizontally
     gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
     new_face = np.zeros_like(frame)                         # create a new image with the same size as the frame
-    
+    stored_frame = frame                                   # store the current frame
+
     # points of the mouth
     mouth_points = [
     # [48],  # <outer mouth>
@@ -362,91 +385,69 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
             (x, y, w, h) = cv2.boundingRect(convexhull_frame)
             center_face = (int((x + x + w) / 2), int((y + y + h) / 2))
             seamlessclone = cv2.seamlessClone(result, frame, head_mask, center_face, cv2.NORMAL_CLONE)
-            frame = seamlessclone
+            stored_frame = seamlessclone
 
     except Exception as e:
-        # print("Frame exception: ",e)
+        print("Frame exception: ",e)
         pass
 
-    
-    if cartoon_active:
-        frame = cartoonize_frame(frame)
+    if cartoon_active:                          # if cartoonize is active
+        cartoonize_frame()                      # cartoonize the frame
+    elif eye_active:                            # if eye swap is active
+        change_eyes()                           # change the eyes
+    put_frame()                                 # show the frame
+    after_id = camera_widget.after(milsec, lambda: swapping_loop(img, landmark_points_ref, triangles_indexes))  # call this function again
 
-    show_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
-    captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
-    photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
-    camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
-    camera_widget.configure(image=photo_image)                  # show the image on the label
-    after_id = camera_widget.after(20, lambda: swapping_loop(img, landmark_points_ref, triangles_indexes))  # call this function again in 20 milliseconds
-      
-def cartoonize() -> None:
+def cartoonize_frame() -> None:
     """
-    Cartoonize the current camera
+    Cartoonize the current frame
     """
-    global capture
+    global stored_frame
     global after_id
     global cartoon_active
     global swap_active
     global scale_value
 
-    cartoon_active = True
-    if swap_active == False:
-        pack_scale(1,10,"Blur")                                 # pack the scale widget
+    remove_filters()                                        # remove all the filters
+    cartoon_active = True                                   # set cartoonize as active
+    if not swap_active:                                     # if swap is not active
         app.after_cancel(after_id)                              # stop calling the function
-        _, frame = capture.read()                               # read the current frame
-        frame = cv2.flip(frame,1)                               # flip the frame horizontally
-        gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)           # convert the frame to grayscale
-        # apply median filter
-        gray = cv2.medianBlur(gray, 3)
-        # detect edges
-        edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)
-        # apply bilateral filter
-        color = cv2.bilateralFilter(frame, int(scale_value.get()), 300, 300)
-
-        # combine color image with edges
-        cartoon = cv2.bitwise_and(color, color, mask=edges)
-        show_img = cv2.cvtColor(cartoon, cv2.COLOR_BGR2RGBA)        # convert the frame to RGBA
-        captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
-        photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
-        camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
-        camera_widget.configure(image=photo_image)                  # show the image on the label
-        after_id = camera_widget.after(20, cartoonize)              # call this function again in 20 milliseconds
-
-def cartoonize_frame(frame:np.ndarray) -> np.ndarray:
-    """
-    Cartoonize the frame
-    Args:
-        frame (np.ndarray): the frame to cartoonize
-    Returns:
-        np.ndarray: the cartoonized frame
-    """
-    global scale_value
-    pack_scale(1,10,"Blur")                             # pack the scale widget  
-    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)       # convert the frame to grayscale
-    # apply median filter
-    gray = cv2.medianBlur(gray, 5)
-    # detect edges
-    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)
-    # apply bilateral filter
-    color = cv2.bilateralFilter(frame, int(scale_value.get()), 300, 300)
-    # combine color image with edges
-    cartoon = cv2.bitwise_and(color, color, mask=edges)
-    return cartoon
-
+        _, fr = capture.read()                                  # read the current frame
+        fr = cv2.flip(fr,1)                                     # flip the frame horizontally
+    else:                                                   # if swap is active
+        fr = stored_frame                                       # use the stored frame
+    pack_scale(1,10,"Blur")                                 # pack the scale widget
+    gray = cv2.cvtColor(fr,cv2.COLOR_BGR2GRAY)              # convert the frame to grayscale
+    gray = cv2.medianBlur(gray, 3)                          # apply median filter
+    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)   # detect edges
+    color = cv2.bilateralFilter(fr, int(scale_value.get()), 300, 300)   # apply bilateral filter   
+    cartoon = cv2.bitwise_and(color, color, mask=edges)     # combine color image with edges
+    stored_frame = cartoon                                  # set the current frame to the cartoonized frame
+    if not swap_active:                                     # if swap is not active
+        put_frame()                                             # put the frame in the camera widget
+        after_id = camera_widget.after(milsec, cartoonize_frame)# call this function again
+        
 def change_eyes():
-    global capture
+    """
+    Change the eyes of the current frame
+    """
+    global stored_frame
     global after_id
     global face_detector
     global shape_predictor
+    global eye_active
     global eye
+    global swap_active
 
-    stop_filter()
-    app.after_cancel(after_id)   
-    _, frame = capture.read()                               # read the current frame
-    frame = cv2.flip(frame,1)                               # flip the frame horizontally
-    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)           # convert the frame to grayscale
-    # eye = cv2.imread("imgs/eye_pupil.png")                  # read the eye image
-
+    remove_filters()                                            # remove all the filters
+    eye_active = True                                           # set eye swap as active
+    if not swap_active:                                         # if swap is not active
+        app.after_cancel(after_id)                                  # stop calling the function
+        _, fr = capture.read()                                      # read the current frame
+        fr = cv2.flip(fr,1)                                         # flip the frame horizontally
+    else:
+        fr = stored_frame                                           # use the stored frame
+    gray = cv2.cvtColor(fr,cv2.COLOR_BGR2GRAY)                  # convert the frame to grayscale
     try:
         landmarks_points_frame = detect_facial_landmarks(gray)  # detect the landmarks of the face
         if len(landmarks_points_frame) != 0:                    # if the face is detected
@@ -463,45 +464,43 @@ def change_eyes():
                 r_eye_width = abs(brer[0] - tler[0] )           # calculate the width of the right eye
                 r_eye_height = abs(brer[1] - tler[1]  )         # calculate the height of the right eye
 
-                eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                       # resize the eye image to the width and height of the left eye
-                eye_area1 = frame[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]    # get the eye area from the frame
-                eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))                       # resize the eye image to the width and height of the right ey
-                eye_area2 = frame[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]    # get the eye area from the frame
+                eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                # resize the eye image to the width and height of the left eye
+                eye_area1 = fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]# get the eye area from the frame
+                eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))                # resize the eye image to the width and height of the right ey
+                eye_area2 = fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]# get the eye area from the frame
 
-                left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)                      # convert the left eye image to grayscale
-                _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV) # create a mask for the left eye
+                left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)                       # convert the left eye image to grayscale
+                _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the left eye
 
-                right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)                     # convert the right eye image to grayscale
-                _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)# create a mask for the right eye
+                right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)                      # convert the right eye image to grayscale
+                _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV) # create a mask for the right eye
 
-                eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)    # get the eye area without the eye
+                eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)     # get the eye area without the eye
+                eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)     # get the eye area without the eye
 
-                eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)    # get the eye area without the eye
+                final_eye1 = cv2.add(eye_area1_no_eye, eye1)    # add the eye to the eye area without the eye
+                final_eye2 = cv2.add(eye_area2_no_eye, eye2)    # add the eye to the eye area without the eye
 
-                final_eye1 = cv2.add(eye_area1_no_eye, eye1)  # add the eye to the eye area without the eye
-                final_eye2 = cv2.add(eye_area2_no_eye, eye2)  # add the eye to the eye area without the eye
-
-                frame[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
-                frame[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
-    except:
+                fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
+                fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
+    except Exception as e:
+        # print("Change eyes ",e)
         pass
-
-    show_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
-    captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
-    photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
-    camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
-    camera_widget.configure(image=photo_image)                  # show the image on the label
-    after_id = camera_widget.after(20, change_eyes)  # call this function again in 20 milliseconds
+    stored_frame = fr
+    if not swap_active:
+        put_frame()
+        after_id = camera_widget.after(milsec, change_eyes)         # call this function again
 
 def pack_scale(from_:int, to:int, text:str) -> None:
     """
     Packs the scale in the GUI
     Args:
-        scale (ttk.Scale): scale to pack
+        from_ (int): the minimum value of the scale
+        to (int): the maximum value of the scale
+        text (str): the title of the scale
     """
     scale.config(from_=from_, to=to)        # set the scale range
     scale_title.config(text=text)           # set the scale title
-    
     scale_title.pack(pady=10)               # pack the scale title
     scale.pack(pady=5)                      # pack the scale
     s_value.pack(pady=5)                    # pack the scale value
@@ -511,21 +510,32 @@ def stop_filter() -> None:
     Stops the filter
     """
     global img_path
-    global cartoon_active
-    scale.pack_forget()
-    scale_title.pack_forget()
-    s_value.pack_forget()
-    app.after_cancel(after_id)
-    if cartoon_active:
-        cartoon_active = False
+    scale.pack_forget()                     # forget the scale
+    scale_title.pack_forget()               # forget the scale title
+    s_value.pack_forget()                   # forget the scale value  
+    app.after_cancel(after_id)              # cancel the after id
+    remove_filters()                        # remove all the filters
     try:                         
-        if img_path != "":
-            img = cv2.imread(img_path)
-            realtime_face_swap(img)
-        open_camera()
-    except:
+        if img_path != "":                      # if the image path is not empty
+            img = cv2.imread(img_path)          # read the image
+            realtime_face_swap(img)             # swap the face
+        else:
+            open_camera()                       # open the camera
+    except Exception as e:
+        # print("Stop filter ",e)
         open_camera()
     
+def remove_filters():
+    """
+    Removes all the filters
+    """
+    global cartoon_active
+    global eye_active
+    if cartoon_active:
+        cartoon_active = False
+    if eye_active:
+        eye_active = False
+
     
 # ---------- MAIN ------------ #
 
@@ -533,8 +543,10 @@ def stop_filter() -> None:
 cam = Camera(1280,720)                  # create a camera object
 capture = cam.record()                  # record video from the camera
 
+milsec = 20                             # the time between each frame
 swap_active = False                     # variable to check if the swap is active
 cartoon_active = False                  # variable to check if the cartoon filter is active
+eye_active = False                      # variable to check if the eye filter is active
 eye = cv2.imread("imgs/blue_eye.png")   # read the eye image
 
 # import detector to detect faces in the image (HOG-based)
@@ -566,7 +578,7 @@ ttk.Button(swapping_label, text="Default Camera", width=30, style="warning", com
 filter_label = ttk.LabelFrame(buttons_frame, text="Filters", padding=10)
 filter_label.pack()
 
-cartoonize_button = ttk.Button(filter_label, text="Cartoonize", width=30, command=cartoonize)
+cartoonize_button = ttk.Button(filter_label, text="Cartoonize", width=30, command=cartoonize_frame)
 cartoonize_button.pack()
 
 eyes_button = ttk.Button(filter_label, text="Change eyes", width=30, command=change_eyes)
@@ -619,6 +631,3 @@ app.mainloop()              # run the app
 ⠀⠀⠀⠀⠀⠀⠀⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠻⠿⠿⠿⠿⠛⠉
 '''
-
-# TODO: - codice+grafica - aggiungere filtri e buttons per sceglierli
-# TODO: - codice - quando verrà aggiunto un nuovo filtro, gestire lo 'swap' tra un filtro e un altro
