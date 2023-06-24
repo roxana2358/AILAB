@@ -114,7 +114,9 @@ def default_camera(text:str="") -> None:
     global after_id
     global swap_active
     global cartoon_active
-
+    global img_path
+    
+    img_path = ""
     swap_active = False
     cartoon_active = False
     try:  
@@ -438,6 +440,7 @@ def change_eyes():
     global shape_predictor
     global eye
 
+    stop_filter()
     app.after_cancel(after_id)   
     _, frame = capture.read()                               # read the current frame
     frame = cv2.flip(frame,1)                               # flip the frame horizontally
@@ -519,6 +522,7 @@ def stop_filter() -> None:
         if img_path != "":
             img = cv2.imread(img_path)
             realtime_face_swap(img)
+        open_camera()
     except:
         open_camera()
     
@@ -564,6 +568,9 @@ filter_label.pack()
 
 cartoonize_button = ttk.Button(filter_label, text="Cartoonize", width=30, command=cartoonize)
 cartoonize_button.pack()
+
+eyes_button = ttk.Button(filter_label, text="Change eyes", width=30, command=change_eyes)
+eyes_button.pack(pady=5)
 
 scale_title = ttk.Label(filter_label, text="scale")
 scale_title.pack(pady=10)
