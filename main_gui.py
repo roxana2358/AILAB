@@ -9,7 +9,7 @@ from ttkbootstrap import DoubleVar
  
 # ---------- GLOBAL VARIABLES ---------- #
 global capture              # video capture
-global after_id
+global after_id             # id of the function called after a delay
 global face_detector        # detector to detect faces in the image (HOG-based)
 global shape_predictor      # predictor to predict the location of 68 landmarks (points) on the face
 global scale_value          # value of the scale
