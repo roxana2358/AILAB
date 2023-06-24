@@ -509,10 +509,7 @@ def stop_filter() -> None:
     """
     Stops the filter
     """
-    global img_path
-    scale.pack_forget()                     # forget the scale
-    scale_title.pack_forget()               # forget the scale title
-    s_value.pack_forget()                   # forget the scale value  
+    global img_path  
     app.after_cancel(after_id)              # cancel the after id
     remove_filters()                        # remove all the filters
     try:                         
@@ -533,6 +530,9 @@ def remove_filters():
     global eye_active
     if cartoon_active:
         cartoon_active = False
+        scale.pack_forget()                     # forget the scale
+        scale_title.pack_forget()               # forget the scale title
+        s_value.pack_forget()                   # forget the scale value
     if eye_active:
         eye_active = False
 
