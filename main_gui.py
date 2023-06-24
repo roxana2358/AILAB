@@ -389,11 +389,11 @@ def cartoonize() -> None:
 
     cartoon_active = True
     if swap_active == False:
-        pack_scale(1,10,"Blur")
+        pack_scale(1,10,"Blur")                                 # pack the scale widget
         app.after_cancel(after_id)                              # stop calling the function
         _, frame = capture.read()                               # read the current frame
         frame = cv2.flip(frame,1)                               # flip the frame horizontally
-        gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
+        gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)           # convert the frame to grayscale
         # apply median filter
         gray = cv2.medianBlur(gray, 3)
         # detect edges
@@ -403,26 +403,24 @@ def cartoonize() -> None:
 
         # combine color image with edges
         cartoon = cv2.bitwise_and(color, color, mask=edges)
-        show_img = cv2.cvtColor(cartoon, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
+        show_img = cv2.cvtColor(cartoon, cv2.COLOR_BGR2RGBA)        # convert the frame to RGBA
         captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
         photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
         camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
         camera_widget.configure(image=photo_image)                  # show the image on the label
-        after_id = camera_widget.after(20, cartoonize)  # call this function again in 20 milliseconds
+        after_id = camera_widget.after(20, cartoonize)              # call this function again in 20 milliseconds
 
 def cartoonize_frame(frame:np.ndarray) -> np.ndarray:
     """
     Cartoonize the frame
-
     Args:
         frame (np.ndarray): the frame to cartoonize
-
     Returns:
         np.ndarray: the cartoonized frame
     """
     global scale_value
-    pack_scale(1,10,"Blur")    
-    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
+    pack_scale(1,10,"Blur")                             # pack the scale widget  
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)       # convert the frame to grayscale
     # apply median filter
     gray = cv2.medianBlur(gray, 5)
     # detect edges
@@ -443,41 +441,39 @@ def change_eyes():
     app.after_cancel(after_id)   
     _, frame = capture.read()                               # read the current frame
     frame = cv2.flip(frame,1)                               # flip the frame horizontally
-    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
-    #eye = cv2.imread("imgs/eye_pupil.png")                                    # read the eye image
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)           # convert the frame to grayscale
+    # eye = cv2.imread("imgs/eye_pupil.png")                  # read the eye image
 
     try:
-        landmarks_points_frame = detect_facial_landmarks(gray)             # detect the landmarks of the face
-        if len(landmarks_points_frame) != 0:                     # if the face is detected
+        landmarks_points_frame = detect_facial_landmarks(gray)  # detect the landmarks of the face
+        if len(landmarks_points_frame) != 0:                    # if the face is detected
                 
-                
-                tlel = landmarks_points_frame[37]                    # top left eye landmark
-                brel = landmarks_points_frame[40]                    # bottom left eye landmark
+                tlel = landmarks_points_frame[37]               # top left eye landmark
+                brel = landmarks_points_frame[40]               # bottom left eye landmark
 
+                tler = landmarks_points_frame[43]               # top right eye landmark
+                brer = landmarks_points_frame[46]               # bottom right eye landmark
 
-                tler = landmarks_points_frame[43]                    # top right eye landmark
-                brer = landmarks_points_frame[46]                    # bottom right eye landmark
+                l_eye_width = abs(brel[0] - tlel[0]  )          # calculate the width of the left eye
+                l_eye_height = abs(brel[1] - tlel[1] )          # calculate the height of the left eye
 
-                l_eye_width = abs(brel[0] - tlel[0]  )                    # calculate the width of the left eye
-                l_eye_height = abs(brel[1] - tlel[1] )                   # calculate the height of the left eye
+                r_eye_width = abs(brer[0] - tler[0] )           # calculate the width of the right eye
+                r_eye_height = abs(brer[1] - tler[1]  )         # calculate the height of the right eye
 
-                r_eye_width = abs(brer[0] - tler[0] )                 # calculate the width of the right eye
-                r_eye_height = abs(brer[1] - tler[1]  )                   # calculate the height of the right eye
+                eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                       # resize the eye image to the width and height of the left eye
+                eye_area1 = frame[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]    # get the eye area from the frame
+                eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))                       # resize the eye image to the width and height of the right ey
+                eye_area2 = frame[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]    # get the eye area from the frame
 
-                eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))  # resize the eye image to the width and height of the left eye
-                eye_area1 = frame[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]  # get the eye area from the frame
-                eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))  # resize the eye image to the width and height of the right ey
-                eye_area2 = frame[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]  # get the eye area from the frame
+                left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)                      # convert the left eye image to grayscale
+                _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV) # create a mask for the left eye
 
-                left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)  # convert the left eye image to grayscale
-                _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the left eye
+                right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)                     # convert the right eye image to grayscale
+                _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)# create a mask for the right eye
 
-                right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)  # convert the right eye image to grayscale
-                _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the right eye
+                eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)    # get the eye area without the eye
 
-                eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)  # get the eye area without the eye
-
-                eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)  # get the eye area without the eye
+                eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)    # get the eye area without the eye
 
                 final_eye1 = cv2.add(eye_area1_no_eye, eye1)  # add the eye to the eye area without the eye
                 final_eye2 = cv2.add(eye_area2_no_eye, eye2)  # add the eye to the eye area without the eye
@@ -500,20 +496,16 @@ def pack_scale(from_:int, to:int, text:str) -> None:
     Args:
         scale (ttk.Scale): scale to pack
     """
-    scale.config(from_=from_, to=to)
-    scale_title.config(text=text)
+    scale.config(from_=from_, to=to)        # set the scale range
+    scale_title.config(text=text)           # set the scale title
     
-    scale_title.pack(pady=10)
-    scale.pack(pady=5)
-    s_value.pack(pady=5)
-
+    scale_title.pack(pady=10)               # pack the scale title
+    scale.pack(pady=5)                      # pack the scale
+    s_value.pack(pady=5)                    # pack the scale value
 
 def stop_filter() -> None:
     """
-
-    Args:
-        button (ttk.Button): _description_
-        scale (ttk.Scale): _description_
+    Stops the filter
     """
     global img_path
     global cartoon_active
@@ -531,33 +523,32 @@ def stop_filter() -> None:
         open_camera()
     
     
-    
-    
 # ---------- MAIN ------------ #
 
 # CREATE THE CAMERA
-cam = Camera(1280,720)                                                      # create a camera object
-capture = cam.record()                                              # record video from the camera
-swap_active = False
-cartoon_active = False
-# ho messo queste cose qui perché così non le devo eseguire ogni volta che eseguo la funzione change_eyes 
-eye = cv2.imread("imgs/blue_eye.png")                             # read the eye image
+cam = Camera(1280,720)                  # create a camera object
+capture = cam.record()                  # record video from the camera
+
+swap_active = False                     # variable to check if the swap is active
+cartoon_active = False                  # variable to check if the cartoon filter is active
+eye = cv2.imread("imgs/blue_eye.png")   # read the eye image
+
 # import detector to detect faces in the image (HOG-based)
 face_detector = dlib.get_frontal_face_detector()
 # import shape predictor to predict the location of 68 landmarks (points) on the face
 shape_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 # DRAW THE GUI
-app = ttk.Window(themename="minty")                 # create the GUI
-screen_width = app.winfo_screenwidth()
-screen_height = app.winfo_screenheight()
+app = ttk.Window(themename="minty")                                 # create the GUI
+screen_width = app.winfo_screenwidth()                              # get the screen width
+screen_height = app.winfo_screenheight()                            # get the screen height
 app.geometry(f"{screen_width}x{screen_height}")                     # set the size of the window
 app.title("Face Swapper - Camera")                                  # set the title 
 app.bind('<Escape>', lambda e: app.quit())                          # press ESC to close the app
 app.wm_iconphoto(True, ImageTk.PhotoImage(file="imgs/persona_speciale.png")) # set the icon (da cambiare o togliere dato che è meme)
 
-scale_value = DoubleVar() # type required by tkinter
-scale_value.set(1) # starting value
+scale_value = DoubleVar()               # type required by tkinter
+scale_value.set(1)                      # starting value
 
 buttons_frame = ttk.Frame(app, padding=10)
 buttons_frame.pack(side='left', fill='y', padx=30, pady=50)
@@ -602,7 +593,7 @@ camera_widget = ttk.Label(camera_label)
 camera_widget.pack()
 
 default_camera()
-app.mainloop()                                                      # run the app
+app.mainloop()              # run the app
 
 '''
 ⢀⡴⠑⡄⠀⠀⠀⠀⠀⠀⠀⣀⣀⣤⣤⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
@@ -622,6 +613,5 @@ app.mainloop()                                                      # run the ap
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠻⠿⠿⠿⠿⠛⠉
 '''
 
-# TODO: - grafica - allineare il text_widget alla destra di upload_button
 # TODO: - codice+grafica - aggiungere filtri e buttons per sceglierli
 # TODO: - codice - quando verrà aggiunto un nuovo filtro, gestire lo 'swap' tra un filtro e un altro
