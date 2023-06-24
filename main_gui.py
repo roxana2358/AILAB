@@ -17,6 +17,7 @@ global scale_value          # value of the scale
 global swap_active          # True if the face swap is active
 global cartoon_active       # True if the cartoon filter is active
 global eye_active           # True if the eye filter is active
+global splash_active        # True if the splash filter is active
 global img_path             # path of the image for the face swapping
                             # global because it's needed to regenerate the face swap after changing filter
 global milsec               # milliseconds between each frame
@@ -528,6 +529,7 @@ def remove_filters():
     """
     global cartoon_active
     global eye_active
+    global splash_active
     if cartoon_active:
         cartoon_active = False
         scale.pack_forget()                     # forget the scale
@@ -535,6 +537,8 @@ def remove_filters():
         s_value.pack_forget()                   # forget the scale value
     if eye_active:
         eye_active = False
+    if splash_active:
+        splash_active = False
 
     
 # ---------- MAIN ------------ #
@@ -543,12 +547,13 @@ def remove_filters():
 cam = Camera(1280,720)                  # create a camera object
 capture = cam.record()                  # record video from the camera
 
+# INITIALIZE VARIABLES
 milsec = 20                             # the time between each frame
 swap_active = False                     # variable to check if the swap is active
 cartoon_active = False                  # variable to check if the cartoon filter is active
 eye_active = False                      # variable to check if the eye filter is active
+splash_active = False                   # variable to check if the splash filter is active
 eye = cv2.imread("imgs/blue_eye.png")   # read the eye image
-
 # import detector to detect faces in the image (HOG-based)
 face_detector = dlib.get_frontal_face_detector()
 # import shape predictor to predict the location of 68 landmarks (points) on the face
