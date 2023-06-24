@@ -108,6 +108,11 @@ def default_camera(text=""):
         text (str, optional): text to show on the label. Defaults to "".
     """
     global after_id
+    global swap_active
+    global cartoon_active
+
+    swap_active = False
+    cartoon_active = False
     try:  
         app.after_cancel(after_id)                              # stop calling the function             
     except:
@@ -156,6 +161,8 @@ def realtime_face_swap(img):
     global after_id
     global face_detector
     global shape_predictor
+    global swap_active
+
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)    # the grayscale image has only one channel in 
                                                         # comparison with the color format so it's easier 
                                                         # to process for the CPU
@@ -216,6 +223,7 @@ def realtime_face_swap(img):
 
     # 4) SWAPPING LOOP 
         app.after_cancel(after_id)                                  # stop calling the function
+        swap_active = True                                          # set the flag to true 
         swapping_loop(img, landmark_points_ref, triangles_indexes)
     except Exception as e:
         # print("Reference image exception: ",e)
@@ -352,7 +360,11 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes):
     except Exception as e:
         # print("Frame exception: ",e)
         pass
-        
+
+    
+    if cartoon_active:
+        frame = cartoonize_frame(frame)
+
     show_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
     captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
     photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
@@ -361,11 +373,126 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes):
     after_id = camera_widget.after(20, lambda: swapping_loop(img, landmark_points_ref, triangles_indexes))  # call this function again in 20 milliseconds
 
         
+def cartoonize():
+    global capture
+    global after_id
+    global cartoon_active
+    global swap_active
+
+    cartoon_active = True
+    if swap_active == False:
+        app.after_cancel(after_id)                              
+        _, frame = capture.read()                               # read the current frame
+        frame = cv2.flip(frame,1)                               # flip the frame horizontally
+        gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
+        # apply median filter
+        gray = cv2.medianBlur(gray, 5)
+        # detect edges
+        edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)
+        # apply bilateral filter
+        color = cv2.bilateralFilter(frame, 9, 300, 300)
+        # combine color image with edges
+        cartoon = cv2.bitwise_and(color, color, mask=edges)
+        show_img = cv2.cvtColor(cartoon, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
+        captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
+        photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
+        camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
+        camera_widget.configure(image=photo_image)                  # show the image on the label
+        after_id = camera_widget.after(20, cartoonize)  # call this function again in 20 milliseconds
+
+
+def cartoonize_frame(frame):
+
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
+    # apply median filter
+    gray = cv2.medianBlur(gray, 5)
+    # detect edges
+    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)
+    # apply bilateral filter
+    color = cv2.bilateralFilter(frame, 9, 300, 300)
+    # combine color image with edges
+    cartoon = cv2.bitwise_and(color, color, mask=edges)
+
+    return cartoon
+
+def change_eyes():
+    global capture
+    global after_id
+    global face_detector
+    global shape_predictor
+    global eye
+
+    app.after_cancel(after_id)   
+    _, frame = capture.read()                               # read the current frame
+    frame = cv2.flip(frame,1)                               # flip the frame horizontally
+    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
+    eye = cv2.imread("imgs/eye_pupil.png")                                    # read the eye image
+
+    # import detector to detect faces in the image (HOG-based)
+    face_detector = dlib.get_frontal_face_detector()
+    # import shape predictor to predict the location of 68 landmarks (points) on the face
+    shape_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+
+    try:
+        landmarks_points_frame = detect_facial_landmarks(frame)             # detect the landmarks of the face
+        if len(landmarks_points_frame) != 0:                     # if the face is detected
+                tlel = landmarks_points_frame[36]                    # top left eye landmark
+                brel = landmarks_points_frame[39]                    # bottom left eye landmark
+
+                tler = landmarks_points_frame[42]                    # top right eye landmark
+                brer = landmarks_points_frame[45]                    # bottom right eye landmark
+
+                # cv2.circle(frame, (tlel[0], tlel[1]), 4, (0, 255, 0), -1)  # draw a circle on the top left eye
+                # cv2.circle(frame, (brel[0], brel[1]), 4, (0, 255, 0), -1)  # draw a circle on the bottom left eye
+
+                l_eye_width = abs(brel[0] - tlel[0]  )                    # calculate the width of the left eye
+                l_eye_height = abs(brel[1] - tlel[1] )                   # calculate the height of the left eye
+
+                r_eye_width = abs(brer[0] - tler[0] )                 # calculate the width of the right eye
+                r_eye_height = abs(brer[1] - tler[1]  )                   # calculate the height of the right eye
+
+                # print(tlel, brel, tler, brer)
+                # print(l_eye_width, l_eye_height, r_eye_width, r_eye_height)
+                eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))  # resize the eye image to the width and height of the left eye
+                eye_area1 = frame[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]  # get the eye area from the frame
+                eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))  # resize the eye image to the width and height of the right ey
+                eye_area2 = frame[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]  # get the eye area from the frame
+
+                left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)  # convert the left eye image to grayscale
+                _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the left eye
+
+                right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)  # convert the right eye image to grayscale
+                _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the right eye
+
+                eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)  # get the eye area without the eye
+
+                eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)  # get the eye area without the eye
+
+                final_eye1 = cv2.add(eye_area1_no_eye, left_eye_gray)  # add the eye to the eye area without the eye
+                final_eye2 = cv2.add(eye_area2_no_eye, right_eye_gray)  # add the eye to the eye area without the eye
+
+                frame[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
+                frame[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
+    except:
+        pass
+
+    show_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
+    captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
+    photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
+    camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
+    camera_widget.configure(image=photo_image)                  # show the image on the label
+    after_id = camera_widget.after(20, change_eyes)  # call this function again in 20 milliseconds
+
+
+
+    
 # ---------- MAIN ------------ #
 
 # CREATE THE CAMERA
 cam = Camera()                                                      # create a camera object
 capture = cam.record()                                              # record video from the camera
+swap_active = False
+cartoon_active = False
 
 # DRAW THE GUI
 app = ttk.Window(themename="minty", size=(800,800))                 # create the GUI
@@ -386,6 +513,12 @@ buttons_frame = ttk.Frame(app)                                      # create a f
 buttons_frame.pack()                                                # show the frame
 
 upload_button = ttk.Button(buttons_frame, text="Upload image", width=20, command=upload_image, style="default") # create a button to upload an image
+upload_button.pack()                                                # show the button
+
+upload_button = ttk.Button(buttons_frame, text="Cartoonize", width=20, command=cartoonize, style="default") # create a button to cartoonize the image
+upload_button.pack()                                                # show the button
+
+upload_button = ttk.Button(buttons_frame, text="Change eyes", width=20, command=change_eyes, style="default") # create a button to change the eyes
 upload_button.pack()                                                # show the button
 
 text_widget = ttk.Label(buttons_frame, text="")                     # create a label to show the text
