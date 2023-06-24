@@ -395,11 +395,12 @@ def cartoonize() -> None:
         frame = cv2.flip(frame,1)                               # flip the frame horizontally
         gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
         # apply median filter
-        gray = cv2.medianBlur(gray, 5)
+        gray = cv2.medianBlur(gray, 3)
         # detect edges
         edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)
         # apply bilateral filter
         color = cv2.bilateralFilter(frame, int(scale_value.get()), 300, 300)
+
         # combine color image with edges
         cartoon = cv2.bitwise_and(color, color, mask=edges)
         show_img = cv2.cvtColor(cartoon, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
@@ -442,25 +443,20 @@ def change_eyes():
     app.after_cancel(after_id)   
     _, frame = capture.read()                               # read the current frame
     frame = cv2.flip(frame,1)                               # flip the frame horizontally
-    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
-    eye = cv2.imread("imgs/eye_pupil.png")                                    # read the eye image
-
-    # import detector to detect faces in the image (HOG-based)
-    face_detector = dlib.get_frontal_face_detector()
-    # import shape predictor to predict the location of 68 landmarks (points) on the face
-    shape_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
+    #eye = cv2.imread("imgs/eye_pupil.png")                                    # read the eye image
 
     try:
-        landmarks_points_frame = detect_facial_landmarks(frame)             # detect the landmarks of the face
+        landmarks_points_frame = detect_facial_landmarks(gray)             # detect the landmarks of the face
         if len(landmarks_points_frame) != 0:                     # if the face is detected
-                tlel = landmarks_points_frame[36]                    # top left eye landmark
-                brel = landmarks_points_frame[39]                    # bottom left eye landmark
+                
+                
+                tlel = landmarks_points_frame[37]                    # top left eye landmark
+                brel = landmarks_points_frame[40]                    # bottom left eye landmark
 
-                tler = landmarks_points_frame[42]                    # top right eye landmark
-                brer = landmarks_points_frame[45]                    # bottom right eye landmark
 
-                # cv2.circle(frame, (tlel[0], tlel[1]), 4, (0, 255, 0), -1)  # draw a circle on the top left eye
-                # cv2.circle(frame, (brel[0], brel[1]), 4, (0, 255, 0), -1)  # draw a circle on the bottom left eye
+                tler = landmarks_points_frame[43]                    # top right eye landmark
+                brer = landmarks_points_frame[46]                    # bottom right eye landmark
 
                 l_eye_width = abs(brel[0] - tlel[0]  )                    # calculate the width of the left eye
                 l_eye_height = abs(brel[1] - tlel[1] )                   # calculate the height of the left eye
@@ -468,8 +464,6 @@ def change_eyes():
                 r_eye_width = abs(brer[0] - tler[0] )                 # calculate the width of the right eye
                 r_eye_height = abs(brer[1] - tler[1]  )                   # calculate the height of the right eye
 
-                # print(tlel, brel, tler, brer)
-                # print(l_eye_width, l_eye_height, r_eye_width, r_eye_height)
                 eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))  # resize the eye image to the width and height of the left eye
                 eye_area1 = frame[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]  # get the eye area from the frame
                 eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))  # resize the eye image to the width and height of the right ey
@@ -485,8 +479,8 @@ def change_eyes():
 
                 eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)  # get the eye area without the eye
 
-                final_eye1 = cv2.add(eye_area1_no_eye, left_eye_gray)  # add the eye to the eye area without the eye
-                final_eye2 = cv2.add(eye_area2_no_eye, right_eye_gray)  # add the eye to the eye area without the eye
+                final_eye1 = cv2.add(eye_area1_no_eye, eye1)  # add the eye to the eye area without the eye
+                final_eye2 = cv2.add(eye_area2_no_eye, eye2)  # add the eye to the eye area without the eye
 
                 frame[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
                 frame[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
@@ -546,6 +540,12 @@ cam = Camera(1280,720)                                                      # cr
 capture = cam.record()                                              # record video from the camera
 swap_active = False
 cartoon_active = False
+# ho messo queste cose qui perché così non le devo eseguire ogni volta che eseguo la funzione change_eyes 
+eye = cv2.imread("imgs/blue_eye.png")                             # read the eye image
+# import detector to detect faces in the image (HOG-based)
+face_detector = dlib.get_frontal_face_detector()
+# import shape predictor to predict the location of 68 landmarks (points) on the face
+shape_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 # DRAW THE GUI
 app = ttk.Window(themename="minty")                 # create the GUI
