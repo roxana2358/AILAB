@@ -419,6 +419,7 @@ def cartoonize_frame(frame:np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: the cartoonized frame
     """
+    global scale_value
     pack_scale(1,10,"Blur")    
     gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
     # apply median filter
@@ -426,7 +427,7 @@ def cartoonize_frame(frame:np.ndarray) -> np.ndarray:
     # detect edges
     edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)
     # apply bilateral filter
-    color = cv2.bilateralFilter(frame, 9, 300, 300)
+    color = cv2.bilateralFilter(frame, int(scale_value.get()), 300, 300)
     # combine color image with edges
     cartoon = cv2.bitwise_and(color, color, mask=edges)
     return cartoon
@@ -623,3 +624,4 @@ app.mainloop()                                                      # run the ap
 
 # TODO: - grafica - allineare il text_widget alla destra di upload_button
 # TODO: - codice+grafica - aggiungere filtri e buttons per sceglierli
+# TODO: - codice - quando verrà aggiunto un nuovo filtro, gestire lo 'swap' tra un filtro e un altro
