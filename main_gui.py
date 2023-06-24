@@ -5,16 +5,20 @@ import numpy as np
 from tkinter.filedialog import askopenfilename
 from PIL import Image, ImageTk
 import ttkbootstrap as ttk
-
+from ttkbootstrap import DoubleVar
+ 
 # ---------- GLOBAL VARIABLES ---------- #
 global capture              # video capture
-global after_id             # id of the after function
+global after_id
 global face_detector        # detector to detect faces in the image (HOG-based)
 global shape_predictor      # predictor to predict the location of 68 landmarks (points) on the face
+global scale_value          # value of the scale
+global img_path             # path of the image for the face swapping
+                            # global because it's needed to regenerate the face swap after changing filter
 
 # ---------- CUSTOM CLASSES ---------- #
 class Camera():
-    def __init__(self, width=640, height=480):
+    def __init__(self, width:int=640, height:int=480):
         """
         Creates a camera with the specified width and height
         Args:
@@ -44,11 +48,11 @@ class Camera():
         return self.width, self.height
 
 # ---------- CUSTOM FUNCTIONS ---------- #
-def detect_facial_landmarks(img_gray):
+def detect_facial_landmarks(img_gray:np.ndarray) -> list:
     """
     Detects the facial landmarks on the image
     Args:
-        img_gray (_type_): grayscale image
+        img_gray (ndarray): grayscale image
     Returns:
         list: list of the facial landmarks
     """
@@ -65,11 +69,11 @@ def detect_facial_landmarks(img_gray):
         landmark_points_ref.append((x,y))
     return landmark_points_ref
 
-def get_cropped_triangle(img, landmarks, v1, v2, v3):
+def get_cropped_triangle(img:np.ndarray, landmarks:list, v1:int, v2:int, v3:int) -> tuple:
     """
     Gets the cropped triangle and other info from the image
     Args:
-        img (_type_): image
+        img (ndarray): image
         landmarks (list): list of the facial landmarks
         v1 (int): vertex 1
         v2 (int): vertex 2
@@ -101,7 +105,7 @@ def get_cropped_triangle(img, landmarks, v1, v2, v3):
     cropped = cv2.bitwise_and(cropped_triangle, cropped_triangle, mask=cropped_mask)
     return points, cropped, cropped_mask, x, y, w, h
 
-def default_camera(text=""):
+def default_camera(text:str="") -> None:
     """
     Shows the default camera on the label
     Args:
@@ -120,7 +124,7 @@ def default_camera(text=""):
     text_widget.configure(text=text)                            # change the text of the label
     open_camera()                                               # show the camera on the label
     
-def open_camera():
+def open_camera() -> None:
     """
     Shows the camera on the label
     """
@@ -136,10 +140,11 @@ def open_camera():
         camera_widget.configure(image=photo_image)              # show the image on the label
         after_id = camera_widget.after(20, open_camera)         # call the function again after 20ms
 
-def upload_image():
+def upload_image() -> None:
     """
     Upload an image from the file system to apply the face swap
     """
+    global img_path
     img_path = askopenfilename(title="Select an image", filetypes=[
         ("image", ".jpg"),
         ("image", ".jpeg"),
@@ -151,7 +156,7 @@ def upload_image():
         text_widget.configure(text=text)
         realtime_face_swap(img)
     
-def realtime_face_swap(img):
+def realtime_face_swap(img:np.ndarray) -> None:
     """
     Prepares the image to be swapped with the camera
     Args:
@@ -229,13 +234,13 @@ def realtime_face_swap(img):
         # print("Reference image exception: ",e)
         default_camera("No face detected in the selected image")
 
-def swapping_loop(img, landmark_points_ref, triangles_indexes):
+def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:list) -> None:
     """
     Swaps the face in real time
     Args:
-        img (_type_): image to swap the face with
-        landmark_points_ref (_type_): landmark points of the reference image
-        triangles_indexes (_type_): list of triangles with vertices indexes
+        img (ndarray): image to swap the face with
+        landmark_points_ref (list): landmark points of the reference image
+        triangles_indexes (list): list of triangles with vertices indexes
     """
     global capture
     global after_id
@@ -371,17 +376,21 @@ def swapping_loop(img, landmark_points_ref, triangles_indexes):
     camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
     camera_widget.configure(image=photo_image)                  # show the image on the label
     after_id = camera_widget.after(20, lambda: swapping_loop(img, landmark_points_ref, triangles_indexes))  # call this function again in 20 milliseconds
-
-        
-def cartoonize():
+      
+def cartoonize() -> None:
+    """
+    Cartoonize the current camera
+    """
     global capture
     global after_id
     global cartoon_active
     global swap_active
+    global scale_value
 
     cartoon_active = True
     if swap_active == False:
-        app.after_cancel(after_id)                              
+        pack_scale(1,10,"Blur")
+        app.after_cancel(after_id)                              # stop calling the function
         _, frame = capture.read()                               # read the current frame
         frame = cv2.flip(frame,1)                               # flip the frame horizontally
         gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
@@ -390,7 +399,8 @@ def cartoonize():
         # detect edges
         edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)
         # apply bilateral filter
-        color = cv2.bilateralFilter(frame, 9, 75, 75)
+        color = cv2.bilateralFilter(frame, int(scale_value.get()), 300, 300)
+
         # combine color image with edges
         cartoon = cv2.bitwise_and(color, color, mask=edges)
         show_img = cv2.cvtColor(cartoon, cv2.COLOR_BGR2RGBA)          # convert the frame to RGBA
@@ -400,19 +410,27 @@ def cartoonize():
         camera_widget.configure(image=photo_image)                  # show the image on the label
         after_id = camera_widget.after(20, cartoonize)  # call this function again in 20 milliseconds
 
+def cartoonize_frame(frame:np.ndarray) -> np.ndarray:
+    """
+    Cartoonize the frame
 
-def cartoonize_frame(frame):
+    Args:
+        frame (np.ndarray): the frame to cartoonize
 
+    Returns:
+        np.ndarray: the cartoonized frame
+    """
+    global scale_value
+    pack_scale(1,10,"Blur")    
     gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
     # apply median filter
     gray = cv2.medianBlur(gray, 5)
     # detect edges
     edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)
     # apply bilateral filter
-    color = cv2.bilateralFilter(frame, 9, 300, 300)
+    color = cv2.bilateralFilter(frame, int(scale_value.get()), 300, 300)
     # combine color image with edges
     cartoon = cv2.bitwise_and(color, color, mask=edges)
-
     return cartoon
 
 def change_eyes():
@@ -476,13 +494,49 @@ def change_eyes():
     camera_widget.configure(image=photo_image)                  # show the image on the label
     after_id = camera_widget.after(20, change_eyes)  # call this function again in 20 milliseconds
 
+def pack_scale(from_:int, to:int, text:str) -> None:
+    """
+    Packs the scale in the GUI
+    Args:
+        scale (ttk.Scale): scale to pack
+    """
+    scale.config(from_=from_, to=to)
+    scale_title.config(text=text)
+    
+    scale_title.pack(pady=10)
+    scale.pack(pady=5)
+    s_value.pack(pady=5)
 
 
+def stop_filter() -> None:
+    """
+
+    Args:
+        button (ttk.Button): _description_
+        scale (ttk.Scale): _description_
+    """
+    global img_path
+    global cartoon_active
+    scale.pack_forget()
+    scale_title.pack_forget()
+    s_value.pack_forget()
+    app.after_cancel(after_id)
+    if cartoon_active:
+        cartoon_active = False
+    try:                         
+        if img_path != "":
+            img = cv2.imread(img_path)
+            realtime_face_swap(img)
+    except:
+        open_camera()
+    
+    
+    
     
 # ---------- MAIN ------------ #
 
 # CREATE THE CAMERA
-cam = Camera()                                                      # create a camera object
+cam = Camera(1280,720)                                                      # create a camera object
 capture = cam.record()                                              # record video from the camera
 swap_active = False
 cartoon_active = False
@@ -494,40 +548,60 @@ face_detector = dlib.get_frontal_face_detector()
 shape_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 # DRAW THE GUI
-app = ttk.Window(themename="minty", size=(800,800))                 # create the GUI
+app = ttk.Window(themename="minty")                 # create the GUI
+screen_width = app.winfo_screenwidth()
+screen_height = app.winfo_screenheight()
+app.geometry(f"{screen_width}x{screen_height}")                     # set the size of the window
 app.title("Face Swapper - Camera")                                  # set the title 
 app.bind('<Escape>', lambda e: app.quit())                          # press ESC to close the app
 app.wm_iconphoto(True, ImageTk.PhotoImage(file="imgs/persona_speciale.png")) # set the icon (da cambiare o togliere dato che è meme)
 
-camera_frame = ttk.Frame(app)                                       # create a frame
-camera_frame.pack(pady=40)                                          # show the frame
+scale_value = DoubleVar() # type required by tkinter
+scale_value.set(1) # starting value
 
-label_camera_frame = ttk.LabelFrame(camera_frame, text="Camera")    # create a label frame
-label_camera_frame.pack(pady=20, padx=20)                           # show the label frame
+buttons_frame = ttk.Frame(app, padding=10)
+buttons_frame.pack(side='left', fill='y', padx=30, pady=50)
 
-camera_widget = ttk.Label(label_camera_frame)                       # create a label to show the camera
-camera_widget.pack(pady=10, padx=10)                                # show the label    
+swapping_label = ttk.LabelFrame(buttons_frame, text="Face swap", padding=10)
+swapping_label.pack()
 
-buttons_frame = ttk.Frame(app)                                      # create a frame
-buttons_frame.pack()                                                # show the frame
+ttk.Button(swapping_label, text="Upload Photo", width=30, command=upload_image).pack()
+ttk.Button(swapping_label, text="Default Camera", width=30, style="warning", command=default_camera).pack(pady=5)
 
-upload_button = ttk.Button(buttons_frame, text="Upload image", width=20, command=upload_image, style="default") # create a button to upload an image
-upload_button.pack()                                                # show the button
+filter_label = ttk.LabelFrame(buttons_frame, text="Filters", padding=10)
+filter_label.pack()
 
-upload_button = ttk.Button(buttons_frame, text="Cartoonize", width=20, command=cartoonize, style="default") # create a button to cartoonize the image
-upload_button.pack()                                                # show the button
+cartoonize_button = ttk.Button(filter_label, text="Cartoonize", width=30, command=cartoonize)
+cartoonize_button.pack()
 
-upload_button = ttk.Button(buttons_frame, text="Change eyes", width=20, command=change_eyes, style="default") # create a button to change the eyes
-upload_button.pack()                                                # show the button
+scale_title = ttk.Label(filter_label, text="scale")
+scale_title.pack(pady=10)
+scale_title.pack_forget()
 
-text_widget = ttk.Label(buttons_frame, text="")                     # create a label to show the text
-text_widget.pack()                                                  # show the label
+scale = ttk.Scale(filter_label, variable=scale_value, length=200, orient='horizontal', from_=1, to=10, command= lambda x: s_value.config(text=int(scale_value.get())))
+scale.pack(pady=10)
+scale.pack_forget()
 
-default_button = ttk.Button(buttons_frame, text="Default camera", width=20, command=default_camera, style="warning") # create a button to use the default camera
-default_button.pack()                                               # show the button
+s_value = ttk.Label(filter_label, text=int(scale_value.get()))
+s_value.pack(pady=10)
+s_value.pack_forget()
 
-# RUN THE APP
-default_camera()                                                    # start the app with the default camera
+remove_filter_button = ttk.Button(filter_label, text="Remove filter", width=30, style="warning", command=stop_filter)
+remove_filter_button.pack(pady=5)
+
+camera_frame = ttk.Frame(app, padding=10)
+camera_frame.pack(side='right')
+
+text_widget = ttk.Label(camera_frame, text="")
+text_widget.pack()
+
+camera_label = ttk.LabelFrame(camera_frame, text="Camera", padding=10)
+camera_label.pack(padx=10)
+
+camera_widget = ttk.Label(camera_label)
+camera_widget.pack()
+
+default_camera()
 app.mainloop()                                                      # run the app
 
 '''
@@ -550,3 +624,4 @@ app.mainloop()                                                      # run the ap
 
 # TODO: - grafica - allineare il text_widget alla destra di upload_button
 # TODO: - codice+grafica - aggiungere filtri e buttons per sceglierli
+# TODO: - codice - quando verrà aggiunto un nuovo filtro, gestire lo 'swap' tra un filtro e un altro
