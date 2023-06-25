@@ -394,6 +394,10 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
 
     if cartoon_active:                          # if cartoonize is active
         cartoonize_frame()                      # cartoonize the frame
+
+    elif splash_active:                           # if splash is active
+        splash()                                  # splash the frame
+
     elif eye_active:                            # if eye swap is active
         change_eyes()                           # change the eyes
     put_frame()                                 # show the frame
@@ -508,8 +512,7 @@ def splash():
     global eye
 
     remove_filters()                                            # remove all the filters
-    eye_active = False                                          # set eye swap as inactive
-    swap_active = False                                         # set swap as inactive
+    splash_active = True                                        # set splash screen as active
     if not swap_active:                                # if the splash screen is not active
         app.after_cancel(after_id)                                  # stop calling the function
         _, fr = capture.read()                                      # read the current frame
