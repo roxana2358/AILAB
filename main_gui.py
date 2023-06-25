@@ -492,6 +492,72 @@ def change_eyes():
         put_frame()
         after_id = camera_widget.after(milsec, change_eyes)         # call this function again
 
+def splash():
+    """
+    Show the splash screen
+    """
+
+    global splash_active
+    global after_id
+    global swap_active
+    global stored_frame
+    global img_path
+    global eye_active
+    global face_detector
+    global shape_predictor
+    global eye
+
+    remove_filters()                                            # remove all the filters
+    eye_active = False                                          # set eye swap as inactive
+    swap_active = False                                         # set swap as inactive
+    if not swap_active:                                # if the splash screen is not active
+        app.after_cancel(after_id)                                  # stop calling the function
+        _, fr = capture.read()                                      # read the current frame
+        fr = cv2.flip(fr,1)                                         # flip the frame horizontally
+    else:
+        fr = stored_frame                                           # use the stored frame
+    res = np.zeros(fr.shape, np.uint8) # creating blank mask for result
+    hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)
+    #stored_frame = hsv
+    # for red
+    lower1 = np.array([160,140,20]) # setting lower HSV value
+    upper1 = np.array([180,255,255]) # setting upper HSV value
+    mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+
+    lower2 = np.array([0,140,20]) # setting lower HSV value
+    upper2 = np.array([10,255,255]) # setting upper HSV value
+    mask2 = cv2.inRange(hsv, lower2, upper2) # generating mask
+
+    mask = mask + mask2
+
+    # for blue
+    # lower1 = np.array([100,100,20]) # setting lower HSV value
+    # upper1 = np.array([120,255,255]) # setting upper HSV value
+    # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+
+    #for green and yellow
+    # lower1 = np.array([20,0,0]) # setting lower HSV value (20,0,20) (46 0 20)
+    # upper1 = np.array([80,255,255]) # setting upper HSV value  (86 255 255)
+    # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+
+    # for yellow
+    # lower1 = np.array([20,100,100]) # setting lower HSV value
+    # upper1 = np.array([30,255,255]) # setting upper HSV value
+    # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+
+    inv_mask = cv2.bitwise_not(mask) # inverting mask
+    gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
+    res1 = cv2.bitwise_and(fr, fr, mask= mask) # region which has to be in color
+    #stored_frame = res1
+    res2 = cv2.bitwise_and(gray, gray, mask= inv_mask) # region which has to be in grayscale
+    for i in range(3):
+        res[:, :, i] = res2 # storing grayscale mask to all three slices
+    fr = cv2.bitwise_or(res1, res) # joining grayscale and color region
+    stored_frame = fr
+    if not swap_active:
+        put_frame()
+        after_id = camera_widget.after(milsec, splash)              # call this function again
+
 def pack_scale(from_:int, to:int, text:str) -> None:
     """
     Packs the scale in the GUI
@@ -588,6 +654,9 @@ cartoonize_button.pack()
 
 eyes_button = ttk.Button(filter_label, text="Change eyes", width=30, command=change_eyes)
 eyes_button.pack(pady=5)
+
+splash_button = ttk.Button(filter_label, text="Splash", width=30, command=splash)
+splash_button.pack(pady=5)
 
 scale_title = ttk.Label(filter_label, text="scale")
 scale_title.pack(pady=10)
