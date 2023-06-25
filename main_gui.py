@@ -6,6 +6,7 @@ from tkinter.filedialog import askopenfilename
 from PIL import Image, ImageTk
 import ttkbootstrap as ttk
 from ttkbootstrap import DoubleVar
+
  
 # ---------- GLOBAL VARIABLES ---------- #
 global capture              # video capture
@@ -454,40 +455,52 @@ def change_eyes():
         fr = stored_frame                                           # use the stored frame
     gray = cv2.cvtColor(fr,cv2.COLOR_BGR2GRAY)                  # convert the frame to grayscale
     try:
-        landmarks_points_frame = detect_facial_landmarks(gray)  # detect the landmarks of the face
-        if len(landmarks_points_frame) != 0:                    # if the face is detected
+        points_frame = detect_facial_landmarks(gray)  # detect the landmarks of the face
+        if len(points_frame) != 0:                    # if the face is detected
                 
-                tlel = landmarks_points_frame[37]               # top left eye landmark
-                brel = landmarks_points_frame[40]               # bottom left eye landmark
+                
+                tlel = points_frame[37]               # top left eye landmark
+                tler = points_frame[43]               # top right eye landmark
 
-                tler = landmarks_points_frame[43]               # top right eye landmark
-                brer = landmarks_points_frame[46]               # bottom right eye landmark
+                l_eye_width = abs(points_frame[40][0] - points_frame[37][0] )          # calculate the width of the left eye
+                l_eye_height = abs(points_frame[40][1] - points_frame[37][1] )       # calculate the height of the left eye
 
-                l_eye_width = abs(brel[0] - tlel[0]  )          # calculate the width of the left eye
-                l_eye_height = abs(brel[1] - tlel[1] )          # calculate the height of the left eye
+                c = points_frame[39][0] - points_frame[36][0] # calculate the width of the whole eye
+                a = points_frame[41][1] - points_frame[37][1]     # calculate the height of the left eye
+                b = points_frame[40][1] - points_frame[38][1]     # calculate the height of the right eye
 
-                r_eye_width = abs(brer[0] - tler[0] )           # calculate the width of the right eye
-                r_eye_height = abs(brer[1] - tler[1]  )         # calculate the height of the right eye
+                r_eye_width = abs(points_frame[46][0] - points_frame[43][0] )           # calculate the width of the right eye
+                r_eye_height = abs(points_frame[46][1] - points_frame[43][1]  )         # calculate the height of the right eye
 
-                eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                # resize the eye image to the width and height of the left eye
-                eye_area1 = fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]# get the eye area from the frame
-                eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))                # resize the eye image to the width and height of the right ey
-                eye_area2 = fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]# get the eye area from the frame
+                c2 = points_frame[45][0] - points_frame[42][0] # calculate the width of the whole eye
+                a2 = points_frame[47][1] - points_frame[43][1]     # calculate the height of the left eye
+                b2 = points_frame[46][1] - points_frame[44][1]     # calculate the height of the right eye
 
-                left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)                       # convert the left eye image to grayscale
-                _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the left eye
+                ear1 = (a + b) / (2 * (c)) # calculate the eye aspect ratio
+                ear2 = (a2 + b2) / (2 * (c2)) # calculate the eye aspect ratio
 
-                right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)                      # convert the right eye image to grayscale
-                _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV) # create a mask for the right eye
+                
+                if ear1 and ear2 > 0.2:                                   # if the eye aspect ratio is more than 0.2 the eyes are opened
+                
+                    eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                # resize the eye image to the width and height of the left eye
+                    eye_area1 = fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]# get the eye area from the frame
+                    eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))                # resize the eye image to the width and height of the right ey
+                    eye_area2 = fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]# get the eye area from the frame
 
-                eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)     # get the eye area without the eye
-                eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)     # get the eye area without the eye
+                    left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)                       # convert the left eye image to grayscale
+                    _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the left eye
 
-                final_eye1 = cv2.add(eye_area1_no_eye, eye1)    # add the eye to the eye area without the eye
-                final_eye2 = cv2.add(eye_area2_no_eye, eye2)    # add the eye to the eye area without the eye
+                    right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)                      # convert the right eye image to grayscale
+                    _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV) # create a mask for the right eye
 
-                fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
-                fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
+                    eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)     # get the eye area without the eye
+                    eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)     # get the eye area without the eye
+
+                    final_eye1 = cv2.add(eye_area1_no_eye, eye1)    # add the eye to the eye area without the eye
+                    final_eye2 = cv2.add(eye_area2_no_eye, eye2)    # add the eye to the eye area without the eye
+
+                    fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
+                    fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
     except Exception as e:
         # print("Change eyes ",e)
         pass
@@ -523,15 +536,15 @@ def splash():
     hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)
     #stored_frame = hsv
     # for red
-    lower1 = np.array([160,100,20]) # setting lower HSV value
-    upper1 = np.array([180,255,255]) # setting upper HSV value
-    mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+    # lower1 = np.array([160,100,20]) # setting lower HSV value
+    # upper1 = np.array([180,255,255]) # setting upper HSV value
+    # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
 
-    lower2 = np.array([0,100,20]) # setting lower HSV value
-    upper2 = np.array([10,255,255]) # setting upper HSV value
-    mask2 = cv2.inRange(hsv, lower2, upper2) # generating mask
+    # lower2 = np.array([0,100,20]) # setting lower HSV value
+    # upper2 = np.array([10,255,255]) # setting upper HSV value
+    # mask2 = cv2.inRange(hsv, lower2, upper2) # generating mask
 
-    mask = mask + mask2
+    # mask = mask + mask2
 
     # for blue
     # lower1 = np.array([100,100,20]) # setting lower HSV value
@@ -544,9 +557,9 @@ def splash():
     # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
 
     # for yellow
-    # lower1 = np.array([20,100,100]) # setting lower HSV value
-    # upper1 = np.array([30,255,255]) # setting upper HSV value
-    # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+    lower1 = np.array([20,0,100]) # setting lower HSV value
+    upper1 = np.array([40,255,255]) # setting upper HSV value
+    mask = cv2.inRange(hsv, lower1, upper1) # generating mask
 
     inv_mask = cv2.bitwise_not(mask) # inverting mask
     gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
