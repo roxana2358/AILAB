@@ -523,11 +523,11 @@ def splash():
     hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)
     #stored_frame = hsv
     # for red
-    lower1 = np.array([160,140,20]) # setting lower HSV value
+    lower1 = np.array([160,100,20]) # setting lower HSV value
     upper1 = np.array([180,255,255]) # setting upper HSV value
     mask = cv2.inRange(hsv, lower1, upper1) # generating mask
 
-    lower2 = np.array([0,140,20]) # setting lower HSV value
+    lower2 = np.array([0,100,20]) # setting lower HSV value
     upper2 = np.array([10,255,255]) # setting upper HSV value
     mask2 = cv2.inRange(hsv, lower2, upper2) # generating mask
 
