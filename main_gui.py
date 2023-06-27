@@ -433,6 +433,14 @@ def cartoonize_frame() -> None:
         put_frame()                                             # put the frame in the camera widget
         after_id = camera_widget.after(milsec, cartoonize_frame)# call this function again
         
+def distance(p1: tuple, p2: tuple) -> float:
+    """
+    Calculate the distance between two points
+    """
+    x1, y1 = p1
+    x2, y2 = p2
+    return ((x2 - x1)**2 + (y2 - y1)**2) ** 0.5
+
 def change_eyes():
     """
     Change the eyes of the current frame
@@ -444,6 +452,9 @@ def change_eyes():
     global eye_active
     global eye
     global swap_active
+    global first_frame
+    global fr_prev
+    global prev_points_frame
 
     remove_filters()                                            # remove all the filters
     eye_active = True                                           # set eye swap as active
@@ -457,53 +468,54 @@ def change_eyes():
     try:
         points_frame = detect_facial_landmarks(gray)  # detect the landmarks of the face
         if len(points_frame) != 0:                    # if the face is detected
-                
-                tlel = points_frame[37]               # top left eye landmark
-                tler = points_frame[43]               # top right eye landmark
 
-                l_eye_width = abs(points_frame[40][0] - points_frame[37][0] )          # calculate the width of the left eye
-                l_eye_height = abs(points_frame[40][1] - points_frame[37][1] )       # calculate the height of the left eye
+            tlel = points_frame[37]               # top left eye landmark
+            tler = points_frame[43]               # top right eye landmark
 
-                c = points_frame[39][0] - points_frame[36][0] # calculate the width of the whole eye
-                a = points_frame[41][1] - points_frame[37][1]     # calculate the height of the left eye
-                b = points_frame[40][1] - points_frame[38][1]     # calculate the height of the right eye
+            l_eye_width = abs(points_frame[40][0] - points_frame[37][0] )          # calculate the width of the left eye
+            l_eye_height = abs(points_frame[40][1] - points_frame[37][1] )       # calculate the height of the left eye
 
-                r_eye_width = abs(points_frame[46][0] - points_frame[43][0] )           # calculate the width of the right eye
-                r_eye_height = abs(points_frame[46][1] - points_frame[43][1]  )         # calculate the height of the right eye
+            c = distance(points_frame[39], points_frame[36]) # calculate the width of the whole eye
+            a = distance(points_frame[41], points_frame[37])     # calculate the height of the left side of the eye
+            b = distance(points_frame[40], points_frame[38])     # calculate the height of the right side of the eye
 
-                c2 = points_frame[45][0] - points_frame[42][0] # calculate the width of the whole eye
-                a2 = points_frame[47][1] - points_frame[43][1]     # calculate the height of the left eye
-                b2 = points_frame[46][1] - points_frame[44][1]     # calculate the height of the right eye
+            r_eye_width = abs(points_frame[46][0] - points_frame[43][0] )           # calculate the width of the right eye
+            r_eye_height = abs(points_frame[46][1] - points_frame[43][1]  )         # calculate the height of the right eye
 
-                ear1 = (a + b) / (2 * (c)) # calculate the eye aspect ratio
-                ear2 = (a2 + b2) / (2 * (c2)) # calculate the eye aspect ratio
+            c2 = distance(points_frame[45], points_frame[42]) # calculate the width of the whole eye
+            a2 = distance(points_frame[47], points_frame[43])     # calculate the height of the left side of the eye
+            b2 = distance(points_frame[46], points_frame[44])     # calculate the height of the right side of the eye
 
 
-                if ear1 > 0.22:                                   # if the eye aspect ratio is more than 0.2 the eyes are open
-                    eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                # resize the eye image to the width and height of the left eye
-                    eye_area1 = fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]# get the eye area from the frame
+            ear1 = (a + b) / (2 * (c)) # calculate the eye aspect ratio
+            ear2 = (a2 + b2) / (2 * (c2)) # calculate the eye aspect ratio
 
-                    left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)                       # convert the left eye image to grayscale
-                    _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the left eye
 
-                    eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)     # get the eye area without the eye
+            average = (ear1 + ear2)/2# calculate the average of the eye aspect ratio
+            if average > 0.22:                                   # if the eye aspect ratio is more than 0.2 the eyes are open
+                eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                # resize the eye image to the width and height of the left eye
+                eye_area1 = fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]# get the eye area from the frame
 
-                    final_eye1 = cv2.add(eye_area1_no_eye, eye1)    # add the eye to the eye area without the eye
+                left_eye_gray = cv2.cvtColor(eye1, cv2.COLOR_BGR2GRAY)                       # convert the left eye image to grayscale
+                _, eye1_mask = cv2.threshold(left_eye_gray, 25, 255, cv2.THRESH_BINARY_INV)  # create a mask for the left eye
 
-                    fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
+                eye_area1_no_eye = cv2.bitwise_and(eye_area1, eye_area1, mask=eye1_mask)     # get the eye area without the eye
 
-                if ear2 > 0.22:                                   # if the eye aspect ratio is more than 0.2 the eyes are open
-                    eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))                # resize the eye image to the width and height of the right ey
-                    eye_area2 = fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]# get the eye area from the frame
+                final_eye1 = cv2.add(eye_area1_no_eye, eye1)    # add the eye to the eye area without the eye
 
-                    right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)                      # convert the right eye image to grayscale
-                    _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV) # create a mask for the right eye
+                fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
 
-                    eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)     # get the eye area without the eye
+                eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))                # resize the eye image to the width and height of the right ey
+                eye_area2 = fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]# get the eye area from the frame
 
-                    final_eye2 = cv2.add(eye_area2_no_eye, eye2)    # add the eye to the eye area without the eye
+                right_eye_gray = cv2.cvtColor(eye2, cv2.COLOR_BGR2GRAY)                      # convert the right eye image to grayscale
+                _, eye2_mask = cv2.threshold(right_eye_gray, 25, 255, cv2.THRESH_BINARY_INV) # create a mask for the right eye
 
-                    fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
+                eye_area2_no_eye = cv2.bitwise_and(eye_area2, eye_area2, mask=eye2_mask)     # get the eye area without the eye
+
+                final_eye2 = cv2.add(eye_area2_no_eye, eye2)    # add the eye to the eye area without the eye
+
+                fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
 
 
     except Exception as e:
@@ -539,7 +551,7 @@ def splash():
         fr = stored_frame                                           # use the stored frame
     res = np.zeros(fr.shape, np.uint8) # creating blank mask for result
     hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)
-    #stored_frame = hsv
+
     # for red
     # lower1 = np.array([160,100,20]) # setting lower HSV value
     # upper1 = np.array([180,255,255]) # setting upper HSV value
@@ -569,7 +581,7 @@ def splash():
     inv_mask = cv2.bitwise_not(mask) # inverting mask
     gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
     res1 = cv2.bitwise_and(fr, fr, mask= mask) # region which has to be in color
-    #stored_frame = res1
+
     res2 = cv2.bitwise_and(gray, gray, mask= inv_mask) # region which has to be in grayscale
     for i in range(3):
         res[:, :, i] = res2 # storing grayscale mask to all three slices
@@ -640,6 +652,9 @@ swap_active = False                     # variable to check if the swap is activ
 cartoon_active = False                  # variable to check if the cartoon filter is active
 eye_active = False                      # variable to check if the eye filter is active
 splash_active = False                   # variable to check if the splash filter is active
+first_frame = False
+fr_prev = None
+prev_points_frame = None
 eye = cv2.imread("imgs/blue_eye.png")   # read the eye image
 # import detector to detect faces in the image (HOG-based)
 face_detector = dlib.get_frontal_face_detector()
