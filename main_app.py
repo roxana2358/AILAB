@@ -386,7 +386,7 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
             # get the center of the face and apply seamless cloning
             (x, y, w, h) = cv2.boundingRect(convexhull_frame)
             center_face = (int((x + x + w) / 2), int((y + y + h) / 2))
-            seamlessclone = cv2.seamlessClone(result, frame, head_mask, center_face, cv2.NORMAL_CLONE)
+            seamlessclone = cv2.seamlessClone(result, frame, head_mask, center_face, cv2.MIXED_CLONE)
             stored_frame = seamlessclone
 
     except Exception as e:
@@ -655,7 +655,7 @@ splash_active = False                   # variable to check if the splash filter
 first_frame = False
 fr_prev = None
 prev_points_frame = None
-eye = cv2.imread("imgs/blue_eye.png")   # read the eye image
+eye = cv2.imread("src/blue_eye.png")   # read the eye image
 # import detector to detect faces in the image (HOG-based)
 face_detector = dlib.get_frontal_face_detector()
 # import shape predictor to predict the location of 68 landmarks (points) on the face
@@ -668,7 +668,7 @@ screen_height = app.winfo_screenheight()                            # get the sc
 app.geometry(f"{screen_width}x{screen_height}")                     # set the size of the window
 app.title("Face Swapper - Camera")                                  # set the title 
 app.bind('<Escape>', lambda e: app.quit())                          # press ESC to close the app
-app.wm_iconphoto(True, ImageTk.PhotoImage(file="imgs/persona_speciale.png")) # set the icon (da cambiare o togliere dato che è meme)
+app.wm_iconphoto(True, ImageTk.PhotoImage(file="faces/persona_speciale.png")) # set the icon (da cambiare o togliere dato che è meme)
 
 scale_value = DoubleVar()               # type required by tkinter
 scale_value.set(1)                      # starting value
