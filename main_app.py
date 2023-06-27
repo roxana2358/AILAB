@@ -23,6 +23,7 @@ global img_path             # path of the image for the face swapping
                             # global because it's needed to regenerate the face swap after changing filter
 global milsec               # milliseconds between each frame
 
+
 # ---------- CUSTOM CLASSES ---------- #
 class Camera():
     def __init__(self, width:int=640, height:int=480):
@@ -68,10 +69,6 @@ def default_camera(text:str="") -> None:
     
     img_path = ""                               # reset the image path
     swap_active = False                         # reset the face swap filter
-    if cartoon_active:                          # if the cartoon filter is active
-        scale.pack_forget()                     # hide the scale
-        scale_title.pack_forget()               # hide the scale title
-        s_value.pack_forget()                   # hide the scale value
     remove_filters()                            # remove all the filters
     try:  
         app.after_cancel(after_id)              # stop calling the function             
@@ -91,13 +88,13 @@ def open_camera() -> None:
     if type(capture) == cv2.VideoCapture:
         _, frame = capture.read()                               # read the current frame
         img = cv2.flip(frame,1)                                 # flip the frame horizontally
-        stored_frame = img                                     # store the current frame
-        put_frame()                                             # show the frame
+        stored_frame = img                                      # store the current frame
+        update_label()                                             # show the frame
         after_id = camera_widget.after(milsec, open_camera)     # call the function again
 
 def upload_image() -> None:
     """
-    Upload an image from the file system to apply the face swap
+    Upload the reference image from the file system
     """
     global img_path
     img_path = askopenfilename(title="Select an image", filetypes=[
@@ -109,11 +106,11 @@ def upload_image() -> None:
         img = cv2.imread(img_path)
         text = img_path + " used as reference"
         text_widget.configure(text=text)
-        realtime_face_swap(img)
+        face_segmentation(img)
 
-def put_frame() -> None:
+def update_label() -> None:
     """
-    Puts the current frame on the label
+    Updates the frame shown on the label
     """
     global stored_frame
     show_img = cv2.cvtColor(stored_frame, cv2.COLOR_BGR2RGBA)  # convert the frame to RGBA
@@ -135,13 +132,13 @@ def detect_facial_landmarks(img_gray:np.ndarray) -> list:
     # predict landmarks of the face using the shape predictor on the grayscale image
     landmarks = shape_predictor(img_gray, face)
     # for each one of the 68 landmarks, get coordinates and store them in a list
-    landmark_points_ref = []
+    landmark_points= []
     for p in range(0,68):
         x = landmarks.part(p).x
         y = landmarks.part(p).y
-        # cv2.circle(img, (x,y), 3, (255,0,0), -1)                        # show the landmarks on the image
-        landmark_points_ref.append((x,y))
-    return landmark_points_ref
+        # cv2.circle(img, (x,y), 3, (255,0,0), -1)        # show the landmarks on the image
+        landmark_points.append((x,y))
+    return landmark_points
 
 def get_cropped_triangle(img:np.ndarray, landmarks:list, v1:int, v2:int, v3:int) -> tuple:
     """
@@ -179,7 +176,7 @@ def get_cropped_triangle(img:np.ndarray, landmarks:list, v1:int, v2:int, v3:int)
     cropped = cv2.bitwise_and(cropped_triangle, cropped_triangle, mask=cropped_mask)
     return points, cropped, cropped_mask, x, y, w, h
 
-def realtime_face_swap(img:np.ndarray) -> None:
+def face_segmentation(img:np.ndarray) -> None:
     """
     Prepares the image to be swapped with the camera
     Args:
@@ -209,12 +206,9 @@ def realtime_face_swap(img:np.ndarray) -> None:
         # also called "minimum convex polygon"
         np_points_ref = np.array(landmark_points_ref,np.int32)              # convert the list of points to a numpy array
         convexhull_ref = cv2.convexHull(np_points_ref)                      # create the convex hull
-        # cv2.polylines(img, [convexhull], True, (255,0,0), 3)                # show the convex hull on the image
 
     # 3) FACE SEGMENTATION INTO TRIANGLES USING DELAUNAY TRIANGULATION
         rect = cv2.boundingRect(convexhull_ref)                             # get the bounding rectangle of the convex hull
-        # (x,y,w,h) = rect                                                    # get the coordinates of the rectangle and draw it on the image
-        # cv2.rectangle(img, (x,y), (x+w,y+h), (255,0,0), 2)
         subdiv = cv2.Subdiv2D(rect)                                         # create a subdiv2D object with the rectangle
         subdiv.insert(landmark_points_ref)                                  # insert the landmark points
         triangles = subdiv.getTriangleList()                                # get the list of Delaunay triangles
@@ -227,11 +221,6 @@ def realtime_face_swap(img:np.ndarray) -> None:
             pt2 = (t[2],t[3])
             pt3 = (t[4],t[5])
 
-            # show the triangles on the image
-            # cv2.line(img, pt1, pt2, (255,0,0), 1)
-            # cv2.line(img, pt2, pt3, (255,0,0), 1)
-            # cv2.line(img, pt3, pt1, (255,0,0), 1)
-
             # use coordinates to find index of the landmark points: where uses the value to find the index of the point in the array
             # the condition returns an array with the indexes of the points that satisfy the condition -> which point it might be
             # axis=1 returns the first element
@@ -242,7 +231,7 @@ def realtime_face_swap(img:np.ndarray) -> None:
 
             # store the triangles in a list
             if index_pt1 is not None and index_pt2 is not None and index_pt3 is not None:
-                triangle = [index_pt1,index_pt2,index_pt3]
+                triangle = (index_pt1,index_pt2,index_pt3)
                 triangles_indexes.append(triangle)
 
         # remove duplicates
@@ -256,28 +245,8 @@ def realtime_face_swap(img:np.ndarray) -> None:
         # print("Reference image exception: ",e)
         default_camera("No face detected in the selected image")
 
-def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:list) -> None:
-    """
-    Swaps the face in real time
-    Args:
-        img (ndarray): image to swap the face with
-        landmark_points_ref (list): landmark points of the reference image
-        triangles_indexes (list): list of triangles with vertices indexes
-    """
-    global capture
-    global after_id
-    global stored_frame
-    global cartoon_active
-    global eye_active
-
-    _, frame = capture.read()                               # read the current frame
-    frame = cv2.flip(frame,1)                               # flip the frame horizontally
-    gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
-    new_face = np.zeros_like(frame)                         # create a new image with the same size as the frame
-    stored_frame = frame                                   # store the current frame
-
-    # points of the mouth
-    mouth_points = [
+# points of the mouth
+mouth_points = [
     # [48],  # <outer mouth>
     # [49],
     # [50],
@@ -299,8 +268,8 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
     [66],
     [67],  # </inner mouth>
 ]
-    # points of the eyes
-    eyes_points = [
+# points of the eyes
+eyes_points = [
     [36],  # <left eye>
     [37],
     [38],
@@ -314,8 +283,28 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
     [46],
     [47],  # </right eye>
 ]
-    mouth_points_set = set(mp[0] for mp in mouth_points)    # convert the list of mouth points to a set
-    eyes_points_set = set(ep[0] for ep in eyes_points)      # convert the list of eyes points to a set
+mouth_points_set = set(mp[0] for mp in mouth_points)    # convert the list of mouth points to a set
+eyes_points_set = set(ep[0] for ep in eyes_points)      # convert the list of eyes points to a set
+
+def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:list) -> None:
+    """
+    Swaps the face in real time
+    Args:
+        img (ndarray): image to swap the face with
+        landmark_points_ref (list): landmark points of the reference image
+        triangles_indexes (list): list of triangles with vertices indexes
+    """
+    global capture
+    global after_id
+    global stored_frame
+    global cartoon_active
+    global eye_active
+
+    _, frame = capture.read()                               # read the current frame
+    frame = cv2.flip(frame,1)                               # flip the frame horizontally
+    gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)     # convert the frame to grayscale
+    new_face = np.zeros_like(frame)                         # create a new image with the same size as the frame
+    stored_frame = frame                                    # store the current frame
 
     try:
     # 5) GET LANDMARKS FROM THE CURRENT FRAME
@@ -375,7 +364,7 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
             head_mask = cv2.fillConvexPoly(head_mask, convexhull_mouth, 0)      # fill the mouth with black
             head_mask = cv2.fillConvexPoly(head_mask, convexhull_left_eye, 0)   # fill the left eye with black
             head_mask = cv2.fillConvexPoly(head_mask, convexhull_right_eye, 0)  # fill the right eye with black
-            face_mask = cv2.bitwise_not(head_mask)                              # invert the mask (face and mouth black, background white)
+            face_mask = cv2.bitwise_not(head_mask)                              # invert the mask (face black, background-mouth-eyes white)
 
             # remove the face from the frame
             head_noface = cv2.bitwise_and(frame, frame, mask=face_mask)
@@ -386,22 +375,20 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
             # get the center of the face and apply seamless cloning
             (x, y, w, h) = cv2.boundingRect(convexhull_frame)
             center_face = (int((x + x + w) / 2), int((y + y + h) / 2))
-            seamlessclone = cv2.seamlessClone(result, frame, head_mask, center_face, cv2.MIXED_CLONE)
+            seamlessclone = cv2.seamlessClone(result, frame, head_mask, center_face, cv2.NORMAL_CLONE)
             stored_frame = seamlessclone
 
     except Exception as e:
         # print("Frame exception: ",e)
         pass
 
-    if cartoon_active:                          # if cartoonize is active
-        cartoonize_frame()                      # cartoonize the frame
-
-    elif splash_active:                           # if splash is active
-        splash()                                  # splash the frame
-
-    elif eye_active:                            # if eye swap is active
-        change_eyes()                           # change the eyes
-    put_frame()                                 # show the frame
+    if cartoon_active:                  # if cartoonize is active
+        cartoonize_frame()              # cartoonize the frame
+    elif splash_active:                 # if splash is active
+        splash()                        # splash the frame
+    elif eye_active:                    # if eye swap is active
+        change_eyes()                   # change the eyes
+    update_label()                      # update label
     after_id = camera_widget.after(milsec, lambda: swapping_loop(img, landmark_points_ref, triangles_indexes))  # call this function again
 
 def cartoonize_frame() -> None:
@@ -430,7 +417,7 @@ def cartoonize_frame() -> None:
     cartoon = cv2.bitwise_and(color, color, mask=edges)     # combine color image with edges
     stored_frame = cartoon                                  # set the current frame to the cartoonized frame
     if not swap_active:                                     # if swap is not active
-        put_frame()                                             # put the frame in the camera widget
+        update_label()                                          # update label
         after_id = camera_widget.after(milsec, cartoonize_frame)# call this function again
         
 def distance(p1: tuple, p2: tuple) -> float:
@@ -452,9 +439,6 @@ def change_eyes():
     global eye_active
     global eye
     global swap_active
-    global first_frame
-    global fr_prev
-    global prev_points_frame
 
     remove_filters()                                            # remove all the filters
     eye_active = True                                           # set eye swap as active
@@ -472,27 +456,25 @@ def change_eyes():
             tlel = points_frame[37]               # top left eye landmark
             tler = points_frame[43]               # top right eye landmark
 
-            l_eye_width = abs(points_frame[40][0] - points_frame[37][0] )          # calculate the width of the left eye
-            l_eye_height = abs(points_frame[40][1] - points_frame[37][1] )       # calculate the height of the left eye
+            l_eye_width = abs(points_frame[40][0] - points_frame[37][0])    # calculate the width of the left eye
+            l_eye_height = abs(points_frame[40][1] - points_frame[37][1])   # calculate the height of the left eye
 
-            c = distance(points_frame[39], points_frame[36]) # calculate the width of the whole eye
-            a = distance(points_frame[41], points_frame[37])     # calculate the height of the left side of the eye
-            b = distance(points_frame[40], points_frame[38])     # calculate the height of the right side of the eye
+            c = distance(points_frame[39], points_frame[36])    # calculate the width of the whole eye
+            a = distance(points_frame[41], points_frame[37])    # calculate the height of the left side of the eye
+            b = distance(points_frame[40], points_frame[38])    # calculate the height of the right side of the eye
 
-            r_eye_width = abs(points_frame[46][0] - points_frame[43][0] )           # calculate the width of the right eye
-            r_eye_height = abs(points_frame[46][1] - points_frame[43][1]  )         # calculate the height of the right eye
+            r_eye_width = abs(points_frame[46][0] - points_frame[43][0])    # calculate the width of the right eye
+            r_eye_height = abs(points_frame[46][1] - points_frame[43][1])   # calculate the height of the right eye
 
-            c2 = distance(points_frame[45], points_frame[42]) # calculate the width of the whole eye
-            a2 = distance(points_frame[47], points_frame[43])     # calculate the height of the left side of the eye
-            b2 = distance(points_frame[46], points_frame[44])     # calculate the height of the right side of the eye
+            c2 = distance(points_frame[45], points_frame[42])   # calculate the width of the whole eye
+            a2 = distance(points_frame[47], points_frame[43])   # calculate the height of the left side of the eye
+            b2 = distance(points_frame[46], points_frame[44])   # calculate the height of the right side of the eye
 
+            ear1 = (a + b) / (2 * (c))      # calculate the eye aspect ratio
+            ear2 = (a2 + b2) / (2 * (c2))   # calculate the eye aspect ratio
 
-            ear1 = (a + b) / (2 * (c)) # calculate the eye aspect ratio
-            ear2 = (a2 + b2) / (2 * (c2)) # calculate the eye aspect ratio
-
-
-            average = (ear1 + ear2)/2# calculate the average of the eye aspect ratio
-            if average > 0.22:                                   # if the eye aspect ratio is more than 0.2 the eyes are open
+            average = (ear1 + ear2)/2   # calculate the average of the eye aspect ratio
+            if average > 0.22:          # if the eye aspect ratio is more than 0.2 the eyes are open
                 eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                # resize the eye image to the width and height of the left eye
                 eye_area1 = fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]# get the eye area from the frame
 
@@ -517,20 +499,18 @@ def change_eyes():
 
                 fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width] = final_eye2  # add the eye to the frame
 
-
     except Exception as e:
         # print("Change eyes ",e)
         pass
     stored_frame = fr
     if not swap_active:
-        put_frame()
-        after_id = camera_widget.after(milsec, change_eyes)         # call this function again
+        update_label()                                      # update label
+        after_id = camera_widget.after(milsec, change_eyes) # call this function again
 
 def splash():
     """
     Show the splash screen
     """
-
     global splash_active
     global after_id
     global swap_active
@@ -541,55 +521,53 @@ def splash():
     global shape_predictor
     global eye
 
-    remove_filters()                                            # remove all the filters
-    splash_active = True                                        # set splash screen as active
-    if not swap_active:                                # if the splash screen is not active
-        app.after_cancel(after_id)                                  # stop calling the function
-        _, fr = capture.read()                                      # read the current frame
-        fr = cv2.flip(fr,1)                                         # flip the frame horizontally
+    remove_filters()                            # remove all the filters
+    splash_active = True                        # set splash screen as active
+    if not swap_active:                         # if the splash screen is not active
+        app.after_cancel(after_id)                  # stop calling the function
+        _, fr = capture.read()                      # read the current frame
+        fr = cv2.flip(fr,1)                         # flip the frame horizontally
     else:
-        fr = stored_frame                                           # use the stored frame
-    res = np.zeros(fr.shape, np.uint8) # creating blank mask for result
-    hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)
+        fr = stored_frame                       # use the stored frame
+    res = np.zeros(fr.shape, np.uint8)          # creating blank mask for result
+    hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)   # convert image to HSV color space 
 
     # for red
-    # lower1 = np.array([160,100,20]) # setting lower HSV value
-    # upper1 = np.array([180,255,255]) # setting upper HSV value
-    # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
-
-    # lower2 = np.array([0,100,20]) # setting lower HSV value
-    # upper2 = np.array([10,255,255]) # setting upper HSV value
-    # mask2 = cv2.inRange(hsv, lower2, upper2) # generating mask
-
-    # mask = mask + mask2
+    lower1 = np.array([160,100,20])             # setting lower HSV value
+    upper1 = np.array([180,255,255])            # setting upper HSV value
+    mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
+    lower2 = np.array([0,100,20])               # setting lower HSV value
+    upper2 = np.array([10,255,255])             # setting upper HSV value
+    mask2 = cv2.inRange(hsv, lower2, upper2)    # generating mask
+    mask = mask + mask2
 
     # for blue
-    # lower1 = np.array([100,100,20]) # setting lower HSV value
-    # upper1 = np.array([120,255,255]) # setting upper HSV value
-    # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+    # lower1 = np.array([100,100,20])             # setting lower HSV value
+    # upper1 = np.array([120,255,255])            # setting upper HSV value
+    # mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
 
-    #for green and yellow
-    # lower1 = np.array([20,0,0]) # setting lower HSV value (20,0,20) (46 0 20)
-    # upper1 = np.array([80,255,255]) # setting upper HSV value  (86 255 255)
-    # mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+    # for green and yellow
+    # lower1 = np.array([20,0,0])                 # setting lower HSV value (20,0,20) (46 0 20)
+    # upper1 = np.array([80,255,255])             # setting upper HSV value  (86 255 255)
+    # mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
 
     # for yellow
-    lower1 = np.array([20,0,100]) # setting lower HSV value
-    upper1 = np.array([40,255,255]) # setting upper HSV value
-    mask = cv2.inRange(hsv, lower1, upper1) # generating mask
+    # lower1 = np.array([20,0,100])               # setting lower HSV value
+    # upper1 = np.array([40,255,255])             # setting upper HSV value
+    # mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
 
-    inv_mask = cv2.bitwise_not(mask) # inverting mask
-    gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
-    res1 = cv2.bitwise_and(fr, fr, mask= mask) # region which has to be in color
+    inv_mask = cv2.bitwise_not(mask)            # inverting mask
+    gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY) # convert to grayscale
+    res1 = cv2.bitwise_and(fr, fr, mask= mask)  # region which has to be in color
 
-    res2 = cv2.bitwise_and(gray, gray, mask= inv_mask) # region which has to be in grayscale
+    res2 = cv2.bitwise_and(gray, gray, mask= inv_mask)  # region which has to be in grayscale
     for i in range(3):
-        res[:, :, i] = res2 # storing grayscale mask to all three slices
-    fr = cv2.bitwise_or(res1, res) # joining grayscale and color region
+        res[:, :, i] = res2                     # storing grayscale mask to all three slices
+    fr = cv2.bitwise_or(res1, res)              # joining grayscale and color region
     stored_frame = fr
     if not swap_active:
-        put_frame()
-        after_id = camera_widget.after(milsec, splash)              # call this function again
+        update_label()                                  # update label
+        after_id = camera_widget.after(milsec, splash)  # call this function again
 
 def pack_scale(from_:int, to:int, text:str) -> None:
     """
@@ -613,9 +591,9 @@ def stop_filter() -> None:
     app.after_cancel(after_id)              # cancel the after id
     remove_filters()                        # remove all the filters
     try:                         
-        if img_path != "":                      # if the image path is not empty
+        if img_path != "":                  # if the image path is not empty
             img = cv2.imread(img_path)          # read the image
-            realtime_face_swap(img)             # swap the face
+            face_segmentation(img)              # swap the face
         else:
             open_camera()                       # open the camera
     except Exception as e:
@@ -652,10 +630,7 @@ swap_active = False                     # variable to check if the swap is activ
 cartoon_active = False                  # variable to check if the cartoon filter is active
 eye_active = False                      # variable to check if the eye filter is active
 splash_active = False                   # variable to check if the splash filter is active
-first_frame = False
-fr_prev = None
-prev_points_frame = None
-eye = cv2.imread("src/blue_eye.png")   # read the eye image
+eye = cv2.imread("src/blue_eye.png")    # read the eye image
 # import detector to detect faces in the image (HOG-based)
 face_detector = dlib.get_frontal_face_detector()
 # import shape predictor to predict the location of 68 landmarks (points) on the face
@@ -668,7 +643,7 @@ screen_height = app.winfo_screenheight()                            # get the sc
 app.geometry(f"{screen_width}x{screen_height}")                     # set the size of the window
 app.title("Face Swapper - Camera")                                  # set the title 
 app.bind('<Escape>', lambda e: app.quit())                          # press ESC to close the app
-app.wm_iconphoto(True, ImageTk.PhotoImage(file="faces/persona_speciale.png")) # set the icon (da cambiare o togliere dato che è meme)
+app.wm_iconphoto(True, ImageTk.PhotoImage(file="src/logo.png"))     # set the icon
 
 scale_value = DoubleVar()               # type required by tkinter
 scale_value.set(1)                      # starting value
@@ -724,20 +699,4 @@ camera_widget.pack()
 default_camera()
 app.mainloop()              # run the app
 
-'''
-⢀⡴⠑⡄⠀⠀⠀⠀⠀⠀⠀⣀⣀⣤⣤⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
-⠸⡇⠀⠿⡀⠀⠀⠀⣀⡴⢿⣿⣿⣿⣿⣿⣿⣿⣷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⠀⠑⢄⣠⠾⠁⣀⣄⡈⠙⣿⣿⣿⣿⣿⣿⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⠀⢀⡀⠁⠀⠀⠈⠙⠛⠂⠈⣿⣿⣿⣿⣿⠿⡿⢿⣆⠀⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⢀⡾⣁⣀⠀⠴⠂⠙⣗⡀⠀⢻⣿⣿⠭⢤⣴⣦⣤⣹⠀⠀⠀⢀⢴⣶⣆ 
-⠀⠀⢀⣾⣿⣿⣿⣷⣮⣽⣾⣿⣥⣴⣿⣿⡿⢂⠔⢚⡿⢿⣿⣦⣴⣾⠁⠸⣼⡿ 
-⠀⢀⡞⠁⠙⠻⠿⠟⠉⠀⠛⢹⣿⣿⣿⣿⣿⣌⢤⣼⣿⣾⣿⡟⠉⠀⠀⠀⠀⠀ 
-⠀⣾⣷⣶⠇⠀⠀⣤⣄⣀⡀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀ 
-⠀⠉⠈⠉⠀⠀⢦⡈⢻⣿⣿⣿⣶⣶⣶⣶⣤⣽⡹⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⠀⠀⠀⠀⠉⠲⣽⡻⢿⣿⣿⣿⣿⣿⣿⣷⣜⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣷⣶⣮⣭⣽⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⠀⠀⠀⣀⣀⣈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇⠀⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⠀⠀⠀⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⠀⠀⠀⠀⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠻⠿⠿⠿⠿⠛⠉
-'''
+# ---------- END MAIN ------------ #

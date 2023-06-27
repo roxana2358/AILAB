@@ -17,12 +17,12 @@ def detect_facial_landmarks(img_gray:np.ndarray) -> list:
     # predict landmarks of the face using the shape predictor on the grayscale image
     landmarks = shape_predictor(img_gray, face)
     # for each one of the 68 landmarks, get coordinates and store them in a list
-    landmark_points_ref = []
+    landmark_points = []
     for p in range(0,68):
         x = landmarks.part(p).x
         y = landmarks.part(p).y
-        landmark_points_ref.append((x,y))
-    return landmark_points_ref
+        landmark_points.append((x,y))
+    return landmark_points
 
 def get_cropped_triangle(img:np.ndarray, landmarks:list, v1:int, v2:int, v3:int) -> tuple:
     """
@@ -62,11 +62,11 @@ def get_cropped_triangle(img:np.ndarray, landmarks:list, v1:int, v2:int, v3:int)
 
 # ---------- MAIN ------------ #
 # 1) READ THE IMAGES
-img1 = cv2.imread("faces/brad_pitt.jpg")        # read the reference image
+img1 = cv2.imread("faces/brad_pitt.jpg")            # read the reference image
 img1_gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)  # the grayscale image has only one channel in 
                                                     # comparison with the color format so it's easier 
                                                     # to process for the CPU
-img2 = cv2.imread("faces/edward_norton.jpg")            # read the image to be swapped
+img2 = cv2.imread("faces/edward_norton.jpg")        # read the image to be swapped
 img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
 
 # 2) CREATE DETECTOR AND PREDICTOR
@@ -119,7 +119,7 @@ for t in triangles:
 
     # store the triangles in a list
     if index_pt1 is not None and index_pt2 is not None and index_pt3 is not None:
-        triangle = [index_pt1,index_pt2,index_pt3]
+        triangle = (index_pt1,index_pt2,index_pt3)
         triangles_indexes.append(triangle)
     
 # remove duplicates
@@ -170,42 +170,51 @@ mouth_points_set = set(mp[0] for mp in mouth_points)    # convert the list of mo
 eyes_points_set = set(ep[0] for ep in eyes_points)      # convert the list of eyes points to a set
 new_face = np.zeros(img2.shape, np.uint8)               # create a new image with the same size as the second image
 
+toWarp = set()
+toWarp.add(2)
+toWarp.add(31)
+toWarp.add(41)
+
 for indexes in triangles_indexes:
     v1 = indexes[0]
     v2 = indexes[1]
     v3 = indexes[2]
 
     # triangle in the reference image
-    points_ref, cropped_ref, _, _, _, _, _ = get_cropped_triangle(img1, landmark_points1, v1, v2, v3)
+    points1, cropped1, _, _, _, _, _ = get_cropped_triangle(img1, landmark_points1, v1, v2, v3)
     
     # triangle in the current frame
-    points_frame, cropped_frame, cropped_frame_mask, x_frame, y_frame, w_frame, h_frame = get_cropped_triangle(img2, landmark_points2, v1, v2, v3)
+    points2, cropped2, cropped2_mask, x2, y2, w2, h2 = get_cropped_triangle(img2, landmark_points2, v1, v2, v3)
     
     # check if the triangle is in the mouth area - no need to warp it
     if (v1 in mouth_points_set and v2 in mouth_points_set and v3 in mouth_points_set) or (v1 in eyes_points_set and v2 in eyes_points_set and v3 in eyes_points_set):
-        warped_triangle = cropped_frame
+        warped_triangle = cropped2
     # else warp triangle from the reference image to the current frame
     else:
-        points_src = np.float32(points_ref)
-        points_dst = np.float32(points_frame)
+        points_src = np.float32(points1)
+        points_dst = np.float32(points2)
         M = cv2.getAffineTransform(points_src, points_dst)
-        warped_triangle = cv2.warpAffine(cropped_ref, M, (w_frame, h_frame), flags=cv2.INTER_NEAREST)
-        warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=cropped_frame_mask)
+        warped_triangle = cv2.warpAffine(cropped1, M, (w2, h2), flags=cv2.INTER_NEAREST)
+        warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=cropped2_mask)
+        # if v1 in toWarp and v2 in toWarp and v3 in toWarp:
+        #     cv2.imwrite("src/toWarp1.jpg", cropped1)
+        #     cv2.imwrite("src/toWarp2.jpg", cropped2)
+        #     cv2.imwrite("src/toWarp3.jpg", warped_triangle)
 
     # apply the transformation to the frame
-    area = new_face[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame]             # get the area where the triangle will be applied
+    area = new_face[y2: y2 + h2, x2: x2 + w2]             # get the area where the triangle will be applied
     area_gray = cv2.cvtColor(area, cv2.COLOR_BGR2GRAY)                                  # convert it to grayscale
     _, area_mask = cv2.threshold(area_gray, 1, 255, cv2.THRESH_BINARY_INV)              # create mask
     warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=area_mask) # apply the mask to the warped triangle
     triangle_area = cv2.add(area, warped_triangle)                                      # add the warped triangle to the area
-    new_face[y_frame: y_frame + h_frame, x_frame: x_frame + w_frame] = triangle_area    # apply the area to the new face
+    new_face[y2: y2 + h2, x2: x2 + w2] = triangle_area    # apply the area to the new face
       
 # make a mask of the face
-face_mask = np.zeros_like(img2_gray)                               # create a black image the same size of the frame
-head_mask = cv2.fillConvexPoly(face_mask, convexhull2, 255)    # fill the face with white
-convexhull_mouth = cv2.convexHull(np_points2[60:])             # get the convex hull of the mouth
-convexhull_left_eye = cv2.convexHull(np_points2[36:42])        # get the convex hull of the left eye
-convexhull_right_eye = cv2.convexHull(np_points2[42:48])       # get the convex hull of the right eye
+face_mask = np.zeros_like(img2_gray)                                # create a black image the same size of the frame
+head_mask = cv2.fillConvexPoly(face_mask, convexhull2, 255)         # fill the face with white
+convexhull_mouth = cv2.convexHull(np_points2[60:])                  # get the convex hull of the mouth
+convexhull_left_eye = cv2.convexHull(np_points2[36:42])             # get the convex hull of the left eye
+convexhull_right_eye = cv2.convexHull(np_points2[42:48])            # get the convex hull of the right eye
 head_mask = cv2.fillConvexPoly(head_mask, convexhull_mouth, 0)      # fill the mouth with black
 head_mask = cv2.fillConvexPoly(head_mask, convexhull_left_eye, 0)   # fill the left eye with black
 head_mask = cv2.fillConvexPoly(head_mask, convexhull_right_eye, 0)  # fill the right eye with black
@@ -216,10 +225,14 @@ head_noface = cv2.bitwise_and(img2, img2, mask=face_mask)
 
 # add the new face to the frame
 result = cv2.add(head_noface, new_face)
+# cv2.imwrite('src/result.jpg', result)
 
 # 7) SEAMLESS CLONING
 (x, y, w, h) = cv2.boundingRect(convexhull2)                # get the bounding rectangle of the face
 center_face = (int((x + x + w) / 2), int((y + y + h) / 2))  # get the center of the face
 seamlessclone = cv2.seamlessClone(result, img2, head_mask, center_face, cv2.MIXED_CLONE)
+# cv2.imwrite('src/seamless_mixed.jpg', seamlessclone)
 
-cv2.imwrite('src/result.jpg', seamlessclone)
+cv2.imshow('Final', seamlessclone)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
