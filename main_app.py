@@ -430,7 +430,7 @@ def distance(p1: tuple, p2: tuple) -> float:
     x2, y2 = p2
     return ((x2 - x1)**2 + (y2 - y1)**2) ** 0.5
 
-def change_eyes():
+def change_eyes() -> None:
     """
     Change the eyes of the current frame
     """
@@ -508,7 +508,7 @@ def change_eyes():
         update_label()                                      # update label
         after_id = camera_widget.after(milsec, change_eyes) # call this function again
 
-def splash():
+def splash() -> None:
     """
     Show the splash screen
     """
@@ -525,7 +525,7 @@ def splash():
 
     if not splash_active:
         remove_filters()                            # remove all the filters
-        pack_radio(["Red","Blue","Yellow"])     # pack the radio buttons
+        pack_radio(["Red","Blue","Yellow-Green"])     # pack the radio buttons
     splash_active = True                        # set splash screen as active
     if not swap_active:                         # if the splash screen is not active
         app.after_cancel(after_id)                  # stop calling the function
@@ -550,15 +550,15 @@ def splash():
         lower = np.array([100,100,20])              # setting lower HSV value
         upper = np.array([120,255,255])             # setting upper HSV value
         mask = cv2.inRange(hsv, lower, upper)       # generating mask
-    elif color == "yellow":
-        lower = np.array([20,0,100])                # setting lower HSV value
-        upper = np.array([40,255,255])              # setting upper HSV value
-        mask = cv2.inRange(hsv, lower, upper)
+    # elif color == "yellow":
+    #     lower = np.array([20,0,100])                # setting lower HSV value
+    #     upper = np.array([40,255,255])              # setting upper HSV value
+    #     mask = cv2.inRange(hsv, lower, upper)
+    elif color == "yellow-green":
+        lower = np.array([20,0,0])                  # setting lower HSV value
+        upper = np.array([80,255,255])              # setting upper HSV value
+        mask = cv2.inRange(hsv, lower, upper)       # generating mask
     
-    # for green and yellow
-    # lower1 = np.array([20,0,0])                 # setting lower HSV value (20,0,20) (46 0 20)
-    # upper1 = np.array([80,255,255])             # setting upper HSV value  (86 255 255)
-    # mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
     
     inv_mask = cv2.bitwise_not(mask)            # inverting mask
     gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY) # convert to grayscale
