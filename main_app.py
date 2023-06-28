@@ -454,11 +454,11 @@ def change_eyes():
         points_frame = detect_facial_landmarks(gray)  # detect the landmarks of the face
         if len(points_frame) != 0:                    # if the face is detected
 
-            tlel = points_frame[37]               # top left eye landmark
+            tlel = points_frame[37]          # top left eye landmark
             tler = points_frame[43]               # top right eye landmark
 
-            l_eye_width = abs(points_frame[40][0] - points_frame[37][0])    # calculate the width of the left eye
-            l_eye_height = abs(points_frame[40][1] - points_frame[37][1])   # calculate the height of the left eye
+            l_eye_width = int(abs(points_frame[40][0] - points_frame[37][0])*1.25)    # calculate the width of the left eye
+            l_eye_height = int(abs(points_frame[40][1] - points_frame[37][1])*1.25)  # calculate the height of the left eye
 
             c = distance(points_frame[39], points_frame[36])    # calculate the width of the whole eye
             a = distance(points_frame[41], points_frame[37])    # calculate the height of the left side of the eye
@@ -474,8 +474,7 @@ def change_eyes():
             ear1 = (a + b) / (2 * (c))      # calculate the eye aspect ratio
             ear2 = (a2 + b2) / (2 * (c2))   # calculate the eye aspect ratio
 
-            average = (ear1 + ear2)/2   # calculate the average of the eye aspect ratio
-            if average > 0.22:          # if the eye aspect ratio is more than 0.2 the eyes are open
+            if ear1 > 0.22:          # if the eye aspect ratio is more than 0.2 the eyes are open
                 eye1 = cv2.resize(eye, (int(l_eye_width), int(l_eye_height)))                # resize the eye image to the width and height of the left eye
                 eye_area1 = fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width]# get the eye area from the frame
 
@@ -487,7 +486,7 @@ def change_eyes():
                 final_eye1 = cv2.add(eye_area1_no_eye, eye1)    # add the eye to the eye area without the eye
 
                 fr[tlel[1]:tlel[1] + l_eye_height, tlel[0]:tlel[0] + l_eye_width] = final_eye1  # add the eye to the frame
-
+            if ear2 > 0.22:
                 eye2 = cv2.resize(eye, (int(r_eye_width), int(r_eye_height)))                # resize the eye image to the width and height of the right ey
                 eye_area2 = fr[tler[1]:tler[1] + r_eye_height, tler[0]:tler[0] + r_eye_width]# get the eye area from the frame
 
