@@ -10,7 +10,7 @@ from ttkbootstrap import DoubleVar, StringVar
  
 # ---------- GLOBAL VARIABLES ---------- #
 global capture              # video capture
-global stored_frame        # current frame to be shown on the label
+global stored_frame         # current frame to be shown on the label
 global after_id             # id of the function called after a delay
 global face_detector        # detector to detect faces in the image (HOG-based)
 global shape_predictor      # predictor to predict the location of 68 landmarks (points) on the face
@@ -90,7 +90,7 @@ def open_camera() -> None:
         _, frame = capture.read()                               # read the current frame
         img = cv2.flip(frame,1)                                 # flip the frame horizontally
         stored_frame = img                                      # store the current frame
-        update_label()                                             # show the frame
+        update_label()                                          # show the frame
         after_id = camera_widget.after(milsec, open_camera)     # call the function again
 
 def upload_image() -> None:
@@ -114,7 +114,7 @@ def update_label() -> None:
     Updates the frame shown on the label
     """
     global stored_frame
-    show_img = cv2.cvtColor(stored_frame, cv2.COLOR_BGR2RGBA)  # convert the frame to RGBA
+    show_img = cv2.cvtColor(stored_frame, cv2.COLOR_BGR2RGBA)   # convert the frame to RGBA
     captured_img = Image.fromarray(show_img)                    # convert the frame to PIL format
     photo_image = ImageTk.PhotoImage(image=captured_img)        # convert the frame to Tkinter format
     camera_widget.photo_image = photo_image                     # keep a reference to the image to avoid garbage collection
@@ -137,7 +137,6 @@ def detect_facial_landmarks(img_gray:np.ndarray) -> list:
     for p in range(0,68):
         x = landmarks.part(p).x
         y = landmarks.part(p).y
-        # cv2.circle(img, (x,y), 3, (255,0,0), -1)        # show the landmarks on the image
         landmark_points.append((x,y))
     return landmark_points
 
@@ -224,8 +223,7 @@ def face_segmentation(img:np.ndarray) -> None:
 
             # use coordinates to find index of the landmark points: where uses the value to find the index of the point in the array
             # the condition returns an array with the indexes of the points that satisfy the condition -> which point it might be
-            # axis=1 returns the first element
-            # the custom function returns only the value of the index
+            # axis=1 returns the first element of the array
             index_pt1 = np.where((np_points_ref == pt1).all(axis=1))[0][0]
             index_pt2 = np.where((np_points_ref == pt2).all(axis=1))[0][0]
             index_pt3 = np.where((np_points_ref == pt3).all(axis=1))[0][0]
@@ -258,9 +256,9 @@ mouth_points = [
     # [55],
     # [56],
     # [57],
-    # [58],  # </outer mouth>
-    [59],  # <inner mouth>
-    [60],
+    # [58],
+    # [59],  # </outer mouth>
+    [60],  # <inner mouth>
     [61],
     [62],
     [63],
@@ -322,14 +320,6 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
                 v1 = indexes[0]
                 v2 = indexes[1]
                 v3 = indexes[2]
-
-                # SHOW TRIANGLES IN THE CURRENT FRAME
-                # pt1 = landmark_points_frame[v1]
-                # pt2 = landmark_points_frame[v2]
-                # pt3 = landmark_points_frame[v3]
-                # cv2.line(frame, pt1, pt2, (255,0,0), 1)
-                # cv2.line(frame, pt2, pt3, (255,0,0), 1)
-                # cv2.line(frame, pt3, pt1, (255,0,0), 1)
             
                 # triangle in the reference image
                 points_ref, cropped_ref, _, _, _, _, _ = get_cropped_triangle(img, landmark_points_ref, v1, v2, v3)
@@ -384,11 +374,11 @@ def swapping_loop(img:np.ndarray, landmark_points_ref:list, triangles_indexes:li
         pass
 
     if cartoon_active:                  # if cartoonize is active
-        cartoonize_frame()              # cartoonize the frame
+        cartoonize_frame()                  # cartoonize the frame
     elif splash_active:                 # if splash is active
-        splash()                        # splash the frame
+        splash()                            # splash the frame
     elif eye_active:                    # if eye swap is active
-        change_eyes()                   # change the eyes
+        change_eyes()                       # change the eyes
     update_label()                      # update label
     after_id = camera_widget.after(milsec, lambda: swapping_loop(img, landmark_points_ref, triangles_indexes))  # call this function again
 
@@ -402,8 +392,9 @@ def cartoonize_frame() -> None:
     global swap_active
     global scale_value
 
-    if not cartoon_active:
+    if not cartoon_active:                                  # if cartoonize is not active
         remove_filters()                                        # remove all the filters
+        pack_scale(1,10,"Blur")                                 # pack the scale widget
     cartoon_active = True                                   # set cartoonize as active
     if not swap_active:                                     # if swap is not active
         app.after_cancel(after_id)                              # stop calling the function
@@ -411,7 +402,6 @@ def cartoonize_frame() -> None:
         fr = cv2.flip(fr,1)                                     # flip the frame horizontally
     else:                                                   # if swap is active
         fr = stored_frame                                       # use the stored frame
-    pack_scale(1,10,"Blur")                                 # pack the scale widget
     gray = cv2.cvtColor(fr,cv2.COLOR_BGR2GRAY)              # convert the frame to grayscale
     gray = cv2.medianBlur(gray, 3)                          # apply median filter
     edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 9, 9)   # detect edges
@@ -456,9 +446,9 @@ def change_eyes() -> None:
         if len(points_frame) != 0:                    # if the face is detected
 
             tlel = points_frame[37]          # top left eye landmark
-            tler = points_frame[43]               # top right eye landmark
+            tler = points_frame[43]          # top right eye landmark
 
-            l_eye_width = int(abs(points_frame[40][0] - points_frame[37][0])*1.25)    # calculate the width of the left eye
+            l_eye_width = int(abs(points_frame[40][0] - points_frame[37][0])*1.25)   # calculate the width of the left eye
             l_eye_height = int(abs(points_frame[40][1] - points_frame[37][1])*1.25)  # calculate the height of the left eye
 
             c = distance(points_frame[39], points_frame[36])    # calculate the width of the whole eye
@@ -504,13 +494,13 @@ def change_eyes() -> None:
         # print("Change eyes ",e)
         pass
     stored_frame = fr
-    if not swap_active:
+    if not swap_active:                                 # if swap is not active
         update_label()                                      # update label
         after_id = camera_widget.after(milsec, change_eyes) # call this function again
 
 def splash() -> None:
     """
-    Show the splash screen
+    Apply splash to the current frame
     """
     global splash_active
     global after_id
@@ -525,7 +515,7 @@ def splash() -> None:
 
     if not splash_active:
         remove_filters()                            # remove all the filters
-        pack_radio(["Red","Blue","Yellow-Green"])     # pack the radio buttons
+        pack_radio(["Red","Blue","Yellow-Green"])   # pack the radio buttons
     splash_active = True                        # set splash screen as active
     if not swap_active:                         # if the splash screen is not active
         app.after_cancel(after_id)                  # stop calling the function
@@ -536,7 +526,7 @@ def splash() -> None:
     res = np.zeros(fr.shape, np.uint8)          # creating blank mask for result
     hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)   # convert image to HSV color space 
     
-    color = radio_value.get()
+    color = radio_value.get()                   # get the selected color
     mask = None
     if color == "red":
         lower = np.array([160,100,20])              # setting lower HSV value
@@ -553,7 +543,7 @@ def splash() -> None:
     # elif color == "yellow":
     #     lower = np.array([20,0,100])                # setting lower HSV value
     #     upper = np.array([40,255,255])              # setting upper HSV value
-    #     mask = cv2.inRange(hsv, lower, upper)
+    #     mask = cv2.inRange(hsv, lower, upper)       # generating mask
     elif color == "yellow-green":
         lower = np.array([20,0,0])                  # setting lower HSV value
         upper = np.array([90,255,255])              # setting upper HSV value
@@ -568,8 +558,8 @@ def splash() -> None:
     for i in range(3):
         res[:, :, i] = res2                     # storing grayscale mask to all three slices
     fr = cv2.bitwise_or(res1, res)              # joining grayscale and color region
-    stored_frame = fr
-    if not swap_active:
+    stored_frame = fr                           # store the frame
+    if not swap_active:                         # if the splash screen is not active
         update_label()                                  # update label
         after_id = camera_widget.after(milsec, splash)  # call this function again
 
@@ -591,13 +581,12 @@ def pack_radio(values:list) -> None:
     """
     Packs the radio buttons in the GUI
     The default radio value is the first one
-    
     Args:
         values (list): values of the radio buttons (strings)
     """
     global radio_value
-    radio_frame.pack(pady=10)           # pack the radio frame
-    radio_value.set(values[0].lower())            # set the default radio value
+    radio_frame.pack(pady=10)               # pack the radio frame
+    radio_value.set(values[0].lower())      # set the default radio value
     for i in range(len(values)):
         ttk.Radiobutton(radio_frame, text=values[i], variable=radio_value, value=values[i].lower()).pack(pady=5)
 
@@ -626,17 +615,17 @@ def remove_filters():
     global eye_active
     global splash_active
     
-    cartoon_active = False
-    eye_active = False
-    splash_active = False
+    cartoon_active = False                      # set cartoon filter as inactive
+    eye_active = False                          # set eye filter as inactive
+    splash_active = False                       # set splash filter as inactive
     
-    scale_title.pack_forget()
-    scale.pack_forget()
-    s_value.pack_forget()
-    
-    for child in radio_frame.winfo_children():
-        child.destroy()
-    radio_frame.pack_forget()
+    scale_title.pack_forget()                   # remove the scale title
+    scale.pack_forget()                         # remove the scale
+    s_value.pack_forget()                       # remove the scale value
+
+    for child in radio_frame.winfo_children():  # remove the radio buttons
+        child.destroy()                             # destroy the radio button
+    radio_frame.pack_forget()                   # remove the radio frame
 
     
 # ---------- MAIN ------------ #
@@ -676,14 +665,14 @@ buttons_frame.pack(side='left', padx=30, pady=50)
 swapping_label = ttk.LabelFrame(buttons_frame, text="Face swap", padding=10)
 swapping_label.pack()
 
-ttk.Button(swapping_label, text="Upload Photo", width=30, command=upload_image).pack()
+ttk.Button(swapping_label, text="Upload Photo", width=30, command=upload_image).pack(pady=5)
 ttk.Button(swapping_label, text="Default Camera", width=30, style="warning", command=default_camera).pack(pady=5)
 
 filter_label = ttk.LabelFrame(buttons_frame, text="Filters", padding=10)
 filter_label.pack()
 
 cartoonize_button = ttk.Button(filter_label, text="Cartoonize", width=30, command=cartoonize_frame)
-cartoonize_button.pack()
+cartoonize_button.pack(pady=5)
 
 eyes_button = ttk.Button(filter_label, text="Change eyes", width=30, command=change_eyes)
 eyes_button.pack(pady=5)
