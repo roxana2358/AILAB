@@ -5,7 +5,7 @@ import numpy as np
 from tkinter.filedialog import askopenfilename
 from PIL import Image, ImageTk
 import ttkbootstrap as ttk
-from ttkbootstrap import DoubleVar
+from ttkbootstrap import DoubleVar, StringVar
 
  
 # ---------- GLOBAL VARIABLES ---------- #
@@ -19,6 +19,7 @@ global swap_active          # True if the face swap is active
 global cartoon_active       # True if the cartoon filter is active
 global eye_active           # True if the eye filter is active
 global splash_active        # True if the splash filter is active
+global radio_value          # value of the radio button
 global img_path             # path of the image for the face swapping
                             # global because it's needed to regenerate the face swap after changing filter
 global milsec               # milliseconds between each frame
@@ -520,8 +521,11 @@ def splash():
     global face_detector
     global shape_predictor
     global eye
+    global radio_value
 
-    remove_filters()                            # remove all the filters
+    if not splash_active:
+        remove_filters()                            # remove all the filters
+        pack_radio(["Red","Blue","Yellow"])     # pack the radio buttons
     splash_active = True                        # set splash screen as active
     if not swap_active:                         # if the splash screen is not active
         app.after_cancel(after_id)                  # stop calling the function
@@ -531,31 +535,31 @@ def splash():
         fr = stored_frame                       # use the stored frame
     res = np.zeros(fr.shape, np.uint8)          # creating blank mask for result
     hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)   # convert image to HSV color space 
-
-    # for red
-    lower1 = np.array([160,100,20])             # setting lower HSV value
-    upper1 = np.array([180,255,255])            # setting upper HSV value
-    mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
-    lower2 = np.array([0,100,20])               # setting lower HSV value
-    upper2 = np.array([10,255,255])             # setting upper HSV value
-    mask2 = cv2.inRange(hsv, lower2, upper2)    # generating mask
-    mask = mask + mask2
-
-    # for blue
-    # lower1 = np.array([100,100,20])             # setting lower HSV value
-    # upper1 = np.array([120,255,255])            # setting upper HSV value
-    # mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
-
+    
+    color = radio_value.get()
+    mask = None
+    if color == "red":
+        lower = np.array([160,100,20])              # setting lower HSV value
+        upper = np.array([180,255,255])             # setting upper HSV value
+        mask = cv2.inRange(hsv, lower, upper)       # generating mask
+        lower = np.array([0,100,20])                # setting lower HSV value
+        upper = np.array([10,255,255])              # setting upper HSV value
+        mask2 = cv2.inRange(hsv, lower, upper)      # generating mask
+        mask = mask + mask2
+    elif color == "blue":
+        lower = np.array([100,100,20])              # setting lower HSV value
+        upper = np.array([120,255,255])             # setting upper HSV value
+        mask = cv2.inRange(hsv, lower, upper)       # generating mask
+    elif color == "yellow":
+        lower = np.array([20,0,100])                # setting lower HSV value
+        upper = np.array([40,255,255])              # setting upper HSV value
+        mask = cv2.inRange(hsv, lower, upper)
+    
     # for green and yellow
     # lower1 = np.array([20,0,0])                 # setting lower HSV value (20,0,20) (46 0 20)
     # upper1 = np.array([80,255,255])             # setting upper HSV value  (86 255 255)
     # mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
-
-    # for yellow
-    # lower1 = np.array([20,0,100])               # setting lower HSV value
-    # upper1 = np.array([40,255,255])             # setting upper HSV value
-    # mask = cv2.inRange(hsv, lower1, upper1)     # generating mask
-
+    
     inv_mask = cv2.bitwise_not(mask)            # inverting mask
     gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY) # convert to grayscale
     res1 = cv2.bitwise_and(fr, fr, mask= mask)  # region which has to be in color
@@ -583,6 +587,20 @@ def pack_scale(from_:int, to:int, text:str) -> None:
     scale.pack(pady=5)                      # pack the scale
     s_value.pack(pady=5)                    # pack the scale value
 
+def pack_radio(values:list) -> None:
+    """
+    Packs the radio buttons in the GUI
+    The default radio value is the first one
+    
+    Args:
+        values (list): values of the radio buttons (strings)
+    """
+    global radio_value
+    radio_frame.pack(pady=10)           # pack the radio frame
+    radio_value.set(values[0].lower())            # set the default radio value
+    for i in range(len(values)):
+        ttk.Radiobutton(radio_frame, text=values[i], variable=radio_value, value=values[i].lower()).pack(pady=5)
+
 def stop_filter() -> None:
     """
     Stops the filter
@@ -607,15 +625,18 @@ def remove_filters():
     global cartoon_active
     global eye_active
     global splash_active
-    if cartoon_active:
-        cartoon_active = False
-        scale.pack_forget()                     # forget the scale
-        scale_title.pack_forget()               # forget the scale title
-        s_value.pack_forget()                   # forget the scale value
-    if eye_active:
-        eye_active = False
-    if splash_active:
-        splash_active = False
+    
+    cartoon_active = False
+    eye_active = False
+    splash_active = False
+    
+    scale_title.pack_forget()
+    scale.pack_forget()
+    s_value.pack_forget()
+    
+    for child in radio_frame.winfo_children():
+        child.destroy()
+    radio_frame.pack_forget()
 
     
 # ---------- MAIN ------------ #
@@ -647,9 +668,10 @@ app.wm_iconphoto(True, ImageTk.PhotoImage(file="src/logo.png"))     # set the ic
 
 scale_value = DoubleVar()               # type required by tkinter
 scale_value.set(1)                      # starting value
+radio_value = StringVar()               # type required by tkinter
 
-buttons_frame = ttk.Frame(app, padding=10)
-buttons_frame.pack(side='left', fill='y', padx=30, pady=50)
+buttons_frame = ttk.Frame(app, padding=10, height=screen_height/2)
+buttons_frame.pack(side='left', padx=30, pady=50)
 
 swapping_label = ttk.LabelFrame(buttons_frame, text="Face swap", padding=10)
 swapping_label.pack()
@@ -683,6 +705,10 @@ s_value.pack_forget()
 
 remove_filter_button = ttk.Button(filter_label, text="Remove filter", width=30, style="warning", command=stop_filter)
 remove_filter_button.pack(pady=5)
+
+radio_frame = ttk.Frame(filter_label)
+radio_frame.pack(pady=10)
+radio_frame.pack_forget()
 
 camera_frame = ttk.Frame(app, padding=10)
 camera_frame.pack(side='right')
