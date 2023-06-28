@@ -402,7 +402,8 @@ def cartoonize_frame() -> None:
     global swap_active
     global scale_value
 
-    remove_filters()                                        # remove all the filters
+    if not cartoon_active:
+        remove_filters()                                        # remove all the filters
     cartoon_active = True                                   # set cartoonize as active
     if not swap_active:                                     # if swap is not active
         app.after_cancel(after_id)                              # stop calling the function
