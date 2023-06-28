@@ -556,7 +556,7 @@ def splash() -> None:
     #     mask = cv2.inRange(hsv, lower, upper)
     elif color == "yellow-green":
         lower = np.array([20,0,0])                  # setting lower HSV value
-        upper = np.array([80,255,255])              # setting upper HSV value
+        upper = np.array([90,255,255])              # setting upper HSV value
         mask = cv2.inRange(hsv, lower, upper)       # generating mask
     
     
