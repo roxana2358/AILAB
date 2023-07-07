@@ -62,11 +62,11 @@ def get_cropped_triangle(img:np.ndarray, landmarks:list, v1:int, v2:int, v3:int)
 
 # ---------- MAIN ------------ #
 # 1) READ THE IMAGES
-img1 = cv2.imread("faces/brad_pitt.jpg")            # read the reference image
+img1 = cv2.imread("src/brad_pitt.jpg")            # read the reference image
 img1_gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)  # the grayscale image has only one channel in 
                                                     # comparison with the color format so it's easier 
                                                     # to process for the CPU
-img2 = cv2.imread("faces/edward_norton.jpg")        # read the image to be swapped
+img2 = cv2.imread("src/edward_norton.jpg")        # read the image to be swapped
 img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
 
 # 2) CREATE DETECTOR AND PREDICTOR
@@ -82,6 +82,8 @@ landmark_points1 = detect_facial_landmarks(img1_gray)
 # cv2.imwrite("src/landmarks.jpg", img1)
 np_points1 = np.array(landmark_points1,np.int32)
 convexhull1 = cv2.convexHull(np_points1)
+# cv2.polylines(img1, [convexhull1], True, (255,0,0), 2)
+# cv2.imwrite("src/convexhull.jpg", img1)
 
 # 4) FIND LANDMARKS IN THE SECOND IMAGE AND CREATE A CONVEX HULL
 landmark_points2 = detect_facial_landmarks(img2_gray)
@@ -91,7 +93,8 @@ convexhull2 = cv2.convexHull(np_points2)
 # 5) FACE SEGMENTATION OF THE FIRST IMAGE INTO TRIANGLES USING DELAUNAY TRIANGULATION
 rect = cv2.boundingRect(convexhull1)                    # get the bounding rectangle of the convex hull
 # (x,y,w,h) = rect                                        # get the coordinates of the rectangle and draw it on the image
-# cv2.rectangle(img, (x,y), (x+w,y+h), (255,0,0), 2)
+# cv2.rectangle(img1, (x,y), (x+w,y+h), (255,0,0), 2)
+# cv2.imwrite("src/rectangle.jpg", img1)
 subdiv = cv2.Subdiv2D(rect)                             # create a subdiv2D object with the rectangle
 subdiv.insert(landmark_points1)                         # insert the landmark points
 triangles = subdiv.getTriangleList()                    # get the list of triangles
@@ -105,9 +108,9 @@ for t in triangles:
     pt3 = (t[4],t[5])
 
     # show the triangles on the image
-    # cv2.line(img1, pt1, pt2, (255,0,0), 1)
-    # cv2.line(img1, pt2, pt3, (255,0,0), 1)
-    # cv2.line(img1, pt3, pt1, (255,0,0), 1)
+    # cv2.line(img2, pt1, pt2, (255,0,0), 1)
+    # cv2.line(img2, pt2, pt3, (255,0,0), 1)
+    # cv2.line(img2, pt3, pt1, (255,0,0), 1)
 
     # use coordinates to find index of the landmark points: where uses the value to find the index of the point in the array
     # the condition returns an array with the indexes of the points that satisfy the condition -> which point it might be
@@ -121,7 +124,8 @@ for t in triangles:
     if index_pt1 is not None and index_pt2 is not None and index_pt3 is not None:
         triangle = (index_pt1,index_pt2,index_pt3)
         triangles_indexes.append(triangle)
-    
+# cv2.imwrite("src/triangles2.jpg", img2) 
+
 # remove duplicates
 triangles_indexes = list(set(tuple(t) for t in triangles_indexes))
 
@@ -212,16 +216,18 @@ for indexes in triangles_indexes:
 # make a mask of the face
 face_mask = np.zeros_like(img2_gray)                                # create a black image the same size of the frame
 head_mask = cv2.fillConvexPoly(face_mask, convexhull2, 255)         # fill the face with white
-convexhull_mouth = cv2.convexHull(np_points2[60:])                  # get the convex hull of the mouth
-convexhull_left_eye = cv2.convexHull(np_points2[36:42])             # get the convex hull of the left eye
-convexhull_right_eye = cv2.convexHull(np_points2[42:48])            # get the convex hull of the right eye
-head_mask = cv2.fillConvexPoly(head_mask, convexhull_mouth, 0)      # fill the mouth with black
-head_mask = cv2.fillConvexPoly(head_mask, convexhull_left_eye, 0)   # fill the left eye with black
-head_mask = cv2.fillConvexPoly(head_mask, convexhull_right_eye, 0)  # fill the right eye with black
+# convexhull_mouth = cv2.convexHull(np_points2[60:])                  # get the convex hull of the mouth
+# convexhull_left_eye = cv2.convexHull(np_points2[36:42])             # get the convex hull of the left eye
+# convexhull_right_eye = cv2.convexHull(np_points2[42:48])            # get the convex hull of the right eye
+# head_mask = cv2.fillConvexPoly(head_mask, convexhull_mouth, 0)      # fill the mouth with black
+# head_mask = cv2.fillConvexPoly(head_mask, convexhull_left_eye, 0)   # fill the left eye with black
+# head_mask = cv2.fillConvexPoly(head_mask, convexhull_right_eye, 0)  # fill the right eye with black
 face_mask = cv2.bitwise_not(head_mask)                              # invert the mask (face and mouth black, background white)
 
 # remove the face from the frame
 head_noface = cv2.bitwise_and(img2, img2, mask=face_mask)
+# cv2.imwrite('src/head_noface.jpg', head_noface)
+# cv2.imwrite('src/new_face.jpg', new_face)
 
 # add the new face to the frame
 result = cv2.add(head_noface, new_face)
